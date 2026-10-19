@@ -1,14 +1,12 @@
 import Compact.OCFRathjen.Unique
 import Compact.OCFRathjen.Eval
-import Compact.OCFRathjen.WeakCompact
 
 /-! 標準形の意味論版 `Good` と、その値の性質。
 
 `Good` は `RTKA.isNF` と同じ形の帰納的述語で、`isNF` が `cmp`・`inC` で調べる条件を順序数の条件
 （`val a < Ω_{val a}`、`val a ∈ C(val a, K_n)` など）に置き換えたもの。
 
-* `Good.inv`：`Good` な項の値は良い性質（`Inv`）をもつ
-  （弱コンパクト性から導いた定常性仮定 (S) `stationaryHyp` を用いる）。
+* `Good.inv`：`StationaryHyp` のもとで、`Good` な項の値は良い性質（`Inv`）をもつ。
   加法的主数・階・Cantor 標準形、正則な項の定常性（Lemma 5.2）、`Ω` の不動点（Lemma 4.19）など。
 * `val_inj`：`Good` な項の上で `val` は単射（Lemma 5.2 (iii)）。 -/
 
@@ -130,7 +128,7 @@ theorem Om_succ_isReg {ζ : Ordinal.{u}} (hΛ : succ ζ < Λ) : IsReg (Om (succ 
     exact (R_K (Nat.succ_le_succ (Nat.zero_le n))).2.1.ne_succ ζ e'.symm
 
 /-- `Good` な項の値の性質（Lemma 4.19、5.2 など） -/
-theorem Good.inv {t : Tm} (h : Good.{u} t) : Inv.{u} t := by
+theorem Good.inv (hS : StationaryHyp.{u}) {t : Tm} (h : Good.{u} t) : Inv.{u} t := by
   induction h with
   | zero =>
     exact {
@@ -247,7 +245,7 @@ theorem Good.inv {t : Tm} (h : Good.{u} t) : Inv.{u} t := by
       psi0 := fun _ _ h => by cases h }
   | xi n a hn _ ha0 hlt hC iha =>
     have hva0 := iha.pos ha0
-    have good : XiGood n (val.{u} a) := Xi_mem hn (stationaryHyp n hn (val a) hva0 hlt hC)
+    have good : XiGood n (val.{u} a) := Xi_mem hn (hS n hn (val a) hva0 hlt hC)
     have hX : Xi n (val.{u} a) < K n := good.2.2
     have hreg := Xi_reg hva0 hX
     exact {
@@ -333,10 +331,10 @@ theorem summands_val_eq {a b : Tm} (ha : Inv.{u} a) (hb : Inv.{u} b) (e : val.{u
   exact cnf_unique ha.cnf h
 
 /-- 和でない項と値が等しい項は和でない -/
-theorem isPrincipal_of_val_eq {a b : Tm} (ha : Good.{u} a)
+theorem isPrincipal_of_val_eq (hS : StationaryHyp.{u}) {a b : Tm} (ha : Good.{u} a)
     (hb : Good.{u} b) (hap : RTKA.isPrincipal a = true) (e : val.{u} a = val b) :
     RTKA.isPrincipal b = true := by
-  have hs := summands_val_eq ha.inv hb.inv e
+  have hs := summands_val_eq (ha.inv hS) (hb.inv hS) e
   rw [summands_principal hap, List.map_cons, List.map_nil] at hs
   cases hb with
   | zero => simp [RTKA.summands] at hs
@@ -347,20 +345,20 @@ theorem isPrincipal_of_val_eq {a b : Tm} (ha : Good.{u} a)
   | _ => simp [RTKA.isPrincipal]
 
 /-- `Good` な項の上で `val` は単射 -/
-theorem val_inj :
+theorem val_inj (hS : StationaryHyp.{u}) :
     ∀ (a b : Tm), Good.{u} a → Good.{u} b → val.{u} a = val b → a = b := by
   intro a
   induction a with
   | zero =>
     intro b _ hb e
-    have hs := summands_val_eq (Good.zero.inv) (hb.inv) e
+    have hs := summands_val_eq (Good.zero.inv hS) (hb.inv hS) e
     simp only [RTKA.summands, List.map_nil] at hs
     exact (summands_eq_nil.mp (List.map_eq_nil_iff.mp hs.symm)).symm
   | plus a₁ a₂ ih₁ ih₂ =>
     intro b ha hb e
-    have hs := summands_val_eq ha.inv hb.inv e
+    have hs := summands_val_eq (ha.inv hS) (hb.inv hS) e
     by_cases hbp : RTKA.isPrincipal b = true
-    · have h := isPrincipal_of_val_eq hb ha hbp e.symm
+    · have h := isPrincipal_of_val_eq hS hb ha hbp e.symm
       simp [RTKA.isPrincipal] at h
     cases ha with
     | plus _ _ ha₁ ha₂ _ ha0 _ =>
@@ -369,14 +367,14 @@ theorem val_inj :
         rw [summands_plus, summands_plus, List.map_cons, List.map_cons] at hs
         have e₁ := (List.cons.inj hs).1
         have e₂ : val.{u} a₂ = val b₂ := by
-          rw [ha₂.inv.cnf.eq, hb₂.inv.cnf.eq, (List.cons.inj hs).2]
+          rw [(ha₂.inv hS).cnf.eq, (hb₂.inv hS).cnf.eq, (List.cons.inj hs).2]
         rw [ih₁ b₁ ha₁ hb₁ e₁, ih₂ b₂ ha₂ hb₂ e₂]
       | zero => simp [RTKA.summands] at hs
       | _ => simp [RTKA.isPrincipal] at hbp
   | one =>
     intro b ha hb e
-    have hbp := isPrincipal_of_val_eq ha hb rfl e
-    have ib := hb.inv
+    have hbp := isPrincipal_of_val_eq hS ha hb rfl e
+    have ib := hb.inv hS
     cases hb with
     | one => rfl
     | kc m hm => exact absurd e (ne_of_lt (one_lt_of_R (R_K hm)))
@@ -390,28 +388,28 @@ theorem val_inj :
     | _ => simp [RTKA.isPrincipal] at hbp
   | K n =>
     intro b ha hb e
-    have hbp := isPrincipal_of_val_eq ha hb rfl e
-    have ib := hb.inv
+    have hbp := isPrincipal_of_val_eq hS ha hb rfl e
+    have ib := hb.inv hS
     cases ha with
     | kc _ hn =>
       cases hb with
       | one => exact absurd e.symm (ne_of_lt (one_lt_of_R (R_K hn)))
       | kc m _ => rw [K_inj e]
-      | om c hc _ hlt => exact absurd e.symm (Om_ne_K hc.inv.lt_Λ hlt)
+      | om c hc _ hlt => exact absurd e.symm (Om_ne_K (hc.inv hS).lt_Λ hlt)
       | xi m c _ _ _ _ _ => exact absurd e.symm (Xi_ne_K (ib.xi m c rfl).2.2.2)
       | psi ξ π β _ _ _ _ _ _ _ _ _ _ _ _ => exact absurd e.symm (Psi_ne_K (ib.psi ξ π β rfl).1)
       | _ => simp [RTKA.isPrincipal] at hbp
   | Om a ih =>
     intro b ha hb e
-    have hbp := isPrincipal_of_val_eq ha hb rfl e
-    have ib := hb.inv
+    have hbp := isPrincipal_of_val_eq hS ha hb rfl e
+    have ib := hb.inv hS
     cases ha with
     | om _ ha' _ hlt =>
-      have hΛ := ha'.inv.lt_Λ
+      have hΛ := (ha'.inv hS).lt_Λ
       cases hb with
       | one => exact absurd e (Om_ne_one hlt)
       | kc m _ => exact absurd e (Om_ne_K hΛ hlt)
-      | om c hc _ _ => rw [ih c ha' hc (Om_inj hΛ hc.inv.lt_Λ e)]
+      | om c hc _ _ => rw [ih c ha' hc (Om_inj hΛ (hc.inv hS).lt_Λ e)]
       | xi m c _ _ _ _ _ =>
         have hx := ib.xi m c rfl
         exact absurd e (Om_ne_Xi hΛ hlt hx.1 hx.2.2.2)
@@ -419,16 +417,16 @@ theorem val_inj :
       | _ => simp [RTKA.isPrincipal] at hbp
   | Xi n a ih =>
     intro b ha hb e
-    have hbp := isPrincipal_of_val_eq ha hb rfl e
-    have ia := ha.inv
-    have ib := hb.inv
+    have hbp := isPrincipal_of_val_eq hS ha hb rfl e
+    have ia := ha.inv hS
+    have ib := hb.inv hS
     have hx := ia.xi n a rfl
     cases ha with
     | xi _ _ _ ha' _ _ _ =>
       cases hb with
       | one => exact absurd e (Xi_ne_one hx.1 hx.2.2.2)
       | kc m _ => exact absurd e (Xi_ne_K hx.2.2.2)
-      | om c hc _ hlt => exact absurd e.symm (Om_ne_Xi hc.inv.lt_Λ hlt hx.1 hx.2.2.2)
+      | om c hc _ hlt => exact absurd e.symm (Om_ne_Xi (hc.inv hS).lt_Λ hlt hx.1 hx.2.2.2)
       | xi m c _ hc _ _ _ =>
         have hy := ib.xi m c rfl
         have h := Xi_inj' hx.1 hy.1 hx.2.2.2 hy.2.2.2 e
@@ -439,16 +437,16 @@ theorem val_inj :
       | _ => simp [RTKA.isPrincipal] at hbp
   | Psi xi pi a ihxi ihpi iha =>
     intro b ha hb e
-    have hbp := isPrincipal_of_val_eq ha hb rfl e
-    have ia := ha.inv
-    have ib := hb.inv
+    have hbp := isPrincipal_of_val_eq hS ha hb rfl e
+    have ia := ha.inv hS
+    have ib := hb.inv hS
     have hp := ia.psi xi pi a rfl
     cases ha with
     | psi _ _ _ _ hxi hpi ha' _ _ _ _ _ _ _ _ =>
       cases hb with
       | one => exact absurd e (Psi_ne_one hp.1 hp.2.1)
       | kc m _ => exact absurd e (Psi_ne_K hp.1)
-      | om c hc _ hlt => exact absurd e.symm (Om_ne_Psi hc.inv.lt_Λ hlt hp.1)
+      | om c hc _ hlt => exact absurd e.symm (Om_ne_Psi (hc.inv hS).lt_Λ hlt hp.1)
       | xi m c _ _ _ _ _ =>
         have hy := ib.xi m c rfl
         exact absurd e (Xi_ne_Psi hy.1 hy.2.2.2 hp.1 hp.2)

@@ -119,11 +119,11 @@ def CmpOK (N : Nat) : Prop :=
 
 /-! ### `inC`（Lemma 5.4） -/
 
-theorem inC_ok {N : Nat} (hN : CmpOK.{u} N) {a g d : Tm}
+theorem inC_ok (hS : StationaryHyp.{u}) {N : Nat} (hN : CmpOK.{u} N) {a g d : Tm}
     (hm1 : 8 * (a.size + g.size) + 5 ≤ N) (hm2 : 8 * (a.size + d.size) + 5 ≤ N)
     (ha : Good.{u} a) (hg : Good.{u} g) (hd : Good.{u} d) :
     RTKA.inC a g d = true ↔ C (val.{u} g) (val d) (val a) := by
-  have ia := ha.inv
+  have ia := ha.inv hS
   have ha' := ha
   cases ha with
   | zero => rw [RTKA.inC]; exact ⟨fun _ => C_zero _ _, fun _ => rfl⟩
@@ -141,11 +141,11 @@ theorem inC_ok {N : Nat} (hN : CmpOK.{u} N) {a g d : Tm}
     · intro h
       have hall := (C_iff_cnf hc).mp h
       refine And.intro (hall _ List.mem_cons_self) ?_
-      exact (C_iff_cnf hy.inv.cnf).mpr (fun p hp => hall p (List.mem_cons_of_mem _ hp))
+      exact (C_iff_cnf (hy.inv hS).cnf).mpr (fun p hp => hall p (List.mem_cons_of_mem _ hp))
   | om x hx _ hlt =>
     simp only [RTKA.Tm.size] at hm1 hm2
     rw [RTKA.inC, hN.2 x g d (by omega) (by omega) hx hg hd]
-    have hΛ := hx.inv.lt_Λ
+    have hΛ := (hx.inv hS).lt_Λ
     apply Iff.intro
     · intro h; exact C_Om hΛ h
     · intro h
@@ -195,12 +195,12 @@ theorem inC_ok {N : Nat} (hN : CmpOK.{u} N) {a g d : Tm}
 
 /-! ### `cmpOmX`（Lemma 4.19） -/
 
-theorem cmpOmX_ok {N : Nat} (hN : CmpOK.{u} N) {a X : Tm}
+theorem cmpOmX_ok (hS : StationaryHyp.{u}) {N : Nat} (hN : CmpOK.{u} N) {a X : Tm}
     (hm : 8 * (a.size + X.size) + 4 ≤ N) (ha : Good.{u} a) (hX : Good.{u} X)
     (hXk : (∃ n b, X = .Xi n b) ∨ (∃ xi pi b, X = .Psi xi pi b)) :
     RTKA.cmpOmX a X = ocmp (Om (val.{u} a)) (val X) := by
-  have ia := ha.inv
-  have iX := hX.inv
+  have ia := ha.inv hS
+  have iX := hX.inv hS
   rw [RTKA.cmpOmX.eq_def]
   by_cases hf : RTKA.omegaFixed X = true
   · simp only [hf, ↓reduceIte]
@@ -237,11 +237,11 @@ theorem cmpOmX_ok {N : Nat} (hN : CmpOK.{u} N) {a X : Tm}
 
 /-! ### `xiLtXi`（Lemma 4.14） -/
 
-theorem xiLtXi_ok {N : Nat} (hN : CmpOK.{u} N) {n : Nat} {a b : Tm}
+theorem xiLtXi_ok (hS : StationaryHyp.{u}) {N : Nat} (hN : CmpOK.{u} N) {n : Nat} {a b : Tm}
     (hm : 8 * (a.size + b.size + 2) ≤ N) (ha : Good.{u} (.Xi n a)) (hb : Good.{u} (.Xi n b)) :
     RTKA.xiLtXi (.Xi n a) (.Xi n b) = true ↔ val.{u} (.Xi n a) < val (.Xi n b) := by
-  have hxa := ha.inv.xi n a rfl
-  have hxb := hb.inv.xi n b rfl
+  have hxa := (ha.inv hS).xi n a rfl
+  have hxb := (hb.inv hS).xi n b rfl
   have ha' := ha
   have hb' := hb
   cases ha with
@@ -256,12 +256,12 @@ theorem xiLtXi_ok {N : Nat} (hN : CmpOK.{u} N) {n : Nat} {a b : Tm}
 
 /-! ### `psiLtXi`（Prop. 4.21） -/
 
-theorem psiLtXi_ok {N : Nat} (hN : CmpOK.{u} N) {xi pi a b : Tm}
+theorem psiLtXi_ok (hS : StationaryHyp.{u}) {N : Nat} (hN : CmpOK.{u} N) {xi pi a b : Tm}
     {m : Nat} (hm : 8 * (xi.size + pi.size + a.size + b.size + 2) ≤ N)
     (hx : Good.{u} (.Psi xi pi a)) (hy : Good.{u} (.Xi m b)) (hlev : RTKA.lev pi = m) :
     RTKA.psiLtXi (.Psi xi pi a) (.Xi m b) = true ↔ val.{u} (.Psi xi pi a) < val (.Xi m b) := by
-  have hp := hx.inv.psi xi pi a rfl
-  have hxb := hy.inv.xi m b rfl
+  have hp := (hx.inv hS).psi xi pi a rfl
+  have hxb := (hy.inv hS).xi m b rfl
   have hx' := hx
   have hy' := hy
   cases hx with
@@ -269,7 +269,7 @@ theorem psiLtXi_ok {N : Nat} (hN : CmpOK.{u} N) {xi pi a b : Tm}
     cases hy with
     | xi _ _ _ hb _ _ _ =>
       have hπK : val.{u} pi < K m := by
-        rw [← hlev]; exact (hpi.inv.bounds (ne_zero_of_isRegTerm hreg)).2.2
+        rw [← hlev]; exact ((hpi.inv hS).bounds (ne_zero_of_isRegTerm hreg)).2.2
       have e3 := hN.2 b a (.Psi xi pi a) (by omega) (by simp only [RTKA.Tm.size]; omega) hb ha hx'
       rw [RTKA.psiLtXi, hN.1 pi _ (by simp only [RTKA.Tm.size]; omega) hpi hy',
         hN.1 b a (by omega) hb ha]
@@ -280,12 +280,12 @@ theorem psiLtXi_ok {N : Nat} (hN : CmpOK.{u} N) {xi pi a b : Tm}
 
 /-! ### `cmpPsi`（Prop. 4.17・4.20） -/
 
-theorem cmpPsi_ok {N : Nat} (hN : CmpOK.{u} N) {xi pi a sg ka b : Tm}
+theorem cmpPsi_ok (hS : StationaryHyp.{u}) {N : Nat} (hN : CmpOK.{u} N) {xi pi a sg ka b : Tm}
     (hm : 8 * (xi.size + pi.size + a.size + sg.size + ka.size + b.size + 2) ≤ N)
     (hx : Good.{u} (.Psi xi pi a)) (hy : Good.{u} (.Psi sg ka b)) :
     RTKA.cmpPsi (.Psi xi pi a) (.Psi sg ka b) = ocmp (val.{u} (.Psi xi pi a)) (val (.Psi sg ka b)) := by
-  have px := hx.inv.psi xi pi a rfl
-  have py := hy.inv.psi sg ka b rfl
+  have px := (hx.inv hS).psi xi pi a rfl
+  have py := (hy.inv hS).psi sg ka b rfl
   have hx' := hx
   have hy' := hy
   cases hx with
@@ -299,7 +299,7 @@ theorem cmpPsi_ok {N : Nat} (hN : CmpOK.{u} N) {xi pi a sg ka b : Tm}
         exact (ocmp_of_eq rfl).symm
       rename_i hne
       have hne' : val.{u} (.Psi xi pi a) ≠ val (.Psi sg ka b) := fun e =>
-        hne (beq_iff_eq.mpr (val_inj _ _ hx' hy' e))
+        hne (beq_iff_eq.mpr (val_inj hS _ _ hx' hy' e))
       rw [hN.1 _ pi (by simp only [RTKA.Tm.size]; omega) hy' hpi]
       split
       · rename_i h
@@ -338,7 +338,7 @@ theorem cmpPsi_ok {N : Nat} (hN : CmpOK.{u} N) {xi pi a sg ka b : Tm}
             C (val a) (val (.Psi xi pi a)) (val ka)) := by
         rw [Bool.and_eq_true, Bool.and_eq_true, i4, i5, i6, and_assoc]
       have hkp : ka = pi ↔ val.{u} ka = val pi :=
-        ⟨fun e => by rw [e], fun e => val_inj _ _ hka hpi e⟩
+        ⟨fun e => by rw [e], fun e => val_inj hS _ _ hka hpi e⟩
       rw [e_ab, e_ba, e_xs, e_sx]
       dsimp only
       split
@@ -374,12 +374,12 @@ theorem cmpPsi_ok {N : Nat} (hN : CmpOK.{u} N) {xi pi a sg ka b : Tm}
 
 /-! ### `cmpP`：和でない項どうしの比較 -/
 
-theorem cmpP_ok {N : Nat} (hN : CmpOK.{u} N) {x y : Tm}
+theorem cmpP_ok (hS : StationaryHyp.{u}) {N : Nat} (hN : CmpOK.{u} N) {x y : Tm}
     (hm : 8 * (x.size + y.size) + 1 ≤ N) (hx : Good.{u} x) (hy : Good.{u} y)
     (hxp : RTKA.isPrincipal x = true) (hyp : RTKA.isPrincipal y = true) :
     RTKA.cmpP x y = ocmp (val.{u} x) (val y) := by
-  have ix := hx.inv
-  have iy := hy.inv
+  have ix := hx.inv hS
+  have iy := hy.inv hS
   have bx := ix.bounds (ne_zero_of_isPrincipal hxp)
   have bY := iy.bounds (ne_zero_of_isPrincipal hyp)
   rw [RTKA.cmpP.eq_def]
@@ -465,15 +465,15 @@ theorem cmpP_ok {N : Nat} (hN : CmpOK.{u} N) {x y : Tm}
       dsimp only
       simp only [RTKA.Tm.size] at hm
       rw [hN.1 a b (by omega) ha hb]
-      exact (ocmp_Om ha.inv.lt_Λ hb.inv.lt_Λ).symm
+      exact (ocmp_Om (ha.inv hS).lt_Λ (hb.inv hS).lt_Λ).symm
     | xi m c _ _ _ _ _ =>
       dsimp only
       simp only [RTKA.Tm.size] at hm
-      exact cmpOmX_ok hN (by simp only [RTKA.Tm.size]; omega) ha hy' (Or.inl ⟨m, c, rfl⟩)
+      exact cmpOmX_ok hS hN (by simp only [RTKA.Tm.size]; omega) ha hy' (Or.inl ⟨m, c, rfl⟩)
     | psi sg ka c _ _ _ _ _ _ _ _ _ _ _ _ =>
       dsimp only
       simp only [RTKA.Tm.size] at hm
-      exact cmpOmX_ok hN (by simp only [RTKA.Tm.size]; omega) ha hy'
+      exact cmpOmX_ok hS hN (by simp only [RTKA.Tm.size]; omega) ha hy'
         (Or.inr ⟨sg, ka, c, rfl⟩)
   | xi n a _ ha _ _ _ =>
     have hxa := ix.xi n a rfl
@@ -488,7 +488,7 @@ theorem cmpP_ok {N : Nat} (hN : CmpOK.{u} N) {x y : Tm}
     | om b hb _ _ =>
       dsimp only
       simp only [RTKA.Tm.size] at hm
-      rw [cmpOmX_ok hN (by simp only [RTKA.Tm.size]; omega) hb hx' (Or.inl ⟨n, a, rfl⟩),
+      rw [cmpOmX_ok hS hN (by simp only [RTKA.Tm.size]; omega) hb hx' (Or.inl ⟨n, a, rfl⟩),
         ocmp_swap]
       rfl
     | xi m b _ hb _ _ _ =>
@@ -502,7 +502,7 @@ theorem cmpP_ok {N : Nat} (hN : CmpOK.{u} N) {x y : Tm}
         exact (ocmp_of_eq rfl).symm
       · have hab' : ¬ (a == b) = true := by rw [beq_iff_eq]; exact hab
         simp only [hab', Bool.false_eq_true, ↓reduceIte]
-        have hiff := xiLtXi_ok hN (by simp only [RTKA.Tm.size] at hm; omega) hx' hy'
+        have hiff := xiLtXi_ok hS hN (by simp only [RTKA.Tm.size] at hm; omega) hx' hy'
         split
         · rename_i h
           exact (ocmp_of_lt (hiff.mp h)).symm
@@ -510,7 +510,7 @@ theorem cmpP_ok {N : Nat} (hN : CmpOK.{u} N) {x y : Tm}
           apply Eq.symm
           apply ocmp_of_gt
           have hne : val.{u} (.Xi n a) ≠ val (.Xi n b) := fun e =>
-            hab (val_inj _ _ ha hb (Xi_inj hxa.1 hxb.1 hxa.2 hxb.2 e))
+            hab (val_inj hS _ _ ha hb (Xi_inj hxa.1 hxb.1 hxa.2 hxb.2 e))
           rcases lt_total (val.{u} (.Xi n a)) (val (.Xi n b)) with h' | h' | h'
           · exact absurd (hiff.mpr h') h
           · exact absurd h' hne
@@ -519,7 +519,7 @@ theorem cmpP_ok {N : Nat} (hN : CmpOK.{u} N) {x y : Tm}
       dsimp only
       simp only [RTKA.lev] at hlev
       have hp := iy.psi xi pi c rfl
-      have hiff := psiLtXi_ok hN (by simp only [RTKA.Tm.size] at hm; omega) hy' hx' hlev.symm
+      have hiff := psiLtXi_ok hS hN (by simp only [RTKA.Tm.size] at hm; omega) hy' hx' hlev.symm
       split
       · rename_i h
         exact (ocmp_of_gt (hiff.mp h)).symm
@@ -544,14 +544,14 @@ theorem cmpP_ok {N : Nat} (hN : CmpOK.{u} N) {x y : Tm}
     | om b hb _ _ =>
       dsimp only
       simp only [RTKA.Tm.size] at hm
-      rw [cmpOmX_ok hN (by simp only [RTKA.Tm.size]; omega) hb hx' (Or.inr ⟨xi, pi, a, rfl⟩),
+      rw [cmpOmX_ok hS hN (by simp only [RTKA.Tm.size]; omega) hb hx' (Or.inr ⟨xi, pi, a, rfl⟩),
         ocmp_swap]
       rfl
     | xi m b _ _ _ _ _ =>
       dsimp only
       simp only [RTKA.lev] at hlev
       have hxb := iy.xi m b rfl
-      have hiff := psiLtXi_ok hN (by simp only [RTKA.Tm.size] at hm; omega) hx' hy' hlev
+      have hiff := psiLtXi_ok hS hN (by simp only [RTKA.Tm.size] at hm; omega) hx' hy' hlev
       split
       · rename_i h
         exact (ocmp_of_lt (hiff.mp h)).symm
@@ -565,11 +565,11 @@ theorem cmpP_ok {N : Nat} (hN : CmpOK.{u} N) {x y : Tm}
         · exact h'
     | psi sg ka b _ _ _ _ _ _ _ _ _ _ _ _ =>
       dsimp only
-      exact cmpPsi_ok hN (by simp only [RTKA.Tm.size] at hm; omega) hx' hy'
+      exact cmpPsi_ok hS hN (by simp only [RTKA.Tm.size] at hm; omega) hx' hy'
 
 /-! ### 和の比較（辞書式） -/
 
-theorem cmpList_ok {N : Nat} (hN : CmpOK.{u} N) :
+theorem cmpList_ok (hS : StationaryHyp.{u}) {N : Nat} (hN : CmpOK.{u} N) :
     ∀ (xs ys : List Tm), 8 * (RTKA.lsize xs + RTKA.lsize ys) + 2 ≤ N →
     (∀ t, t ∈ xs → Good.{u} t ∧ RTKA.isPrincipal t = true) →
     (∀ t, t ∈ ys → Good.{u} t ∧ RTKA.isPrincipal t = true) →
@@ -596,11 +596,11 @@ theorem cmpList_ok {N : Nat} (hN : CmpOK.{u} N) :
       simp only [RTKA.lsize] at hm
       have hx0 := hxs x List.mem_cons_self
       have hy0 := hys y List.mem_cons_self
-      rw [RTKA.cmpList, cmpP_ok hN (by omega) hx0.1 hy0.1 hx0.2 hy0.2]
+      rw [RTKA.cmpList, cmpP_ok hS hN (by omega) hx0.1 hy0.1 hx0.2 hy0.2]
       simp only [List.map_cons] at hx hy ⊢
       rcases lt_total (val.{u} x) (val y) with h | h | h
       · rw [ocmp_of_lt h]
-        exact (ocmp_of_lt (lt_of_lt_of_le (hx.lt_of_head_lt (hy0.1.inv.principal hy0.2) h)
+        exact (ocmp_of_lt (lt_of_lt_of_le (hx.lt_of_head_lt ((hy0.1.inv hS).principal hy0.2) h)
           hy.head_le)).symm
       · rw [ocmp_of_eq h]
         dsimp only
@@ -608,38 +608,38 @@ theorem cmpList_ok {N : Nat} (hN : CmpOK.{u} N) :
           (fun t ht => hys t (List.mem_cons_of_mem _ ht)) hx.tail hy.tail,
           listSum_cons, listSum_cons, h, ocmp_add_left]
       · rw [ocmp_of_gt h]
-        exact (ocmp_of_gt (lt_of_lt_of_le (hy.lt_of_head_lt (hx0.1.inv.principal hx0.2) h)
+        exact (ocmp_of_gt (lt_of_lt_of_le (hy.lt_of_head_lt ((hx0.1.inv hS).principal hx0.2) h)
           hx.head_le)).symm
 
-theorem cmp_ok {N : Nat} (hN : CmpOK.{u} N) {a b : Tm}
+theorem cmp_ok (hS : StationaryHyp.{u}) {N : Nat} (hN : CmpOK.{u} N) {a b : Tm}
     (hm : 8 * (a.size + b.size) + 3 ≤ N) (ha : Good.{u} a) (hb : Good.{u} b) :
     RTKA.cmp a b = ocmp (val.{u} a) (val b) := by
-  have ia := ha.inv
-  have ib := hb.inv
+  have ia := ha.inv hS
+  have ib := hb.inv hS
   have la := RTKA.lsize_summands_le a
   have lb := RTKA.lsize_summands_le b
-  rw [RTKA.cmp, cmpList_ok hN _ _ (by omega) (summands_good a ha) (summands_good b hb)
+  rw [RTKA.cmp, cmpList_ok hS hN _ _ (by omega) (summands_good a ha) (summands_good b hb)
     ⟨ia.cnf.1, ia.cnf.2.1, rfl⟩ ⟨ib.cnf.1, ib.cnf.2.1, rfl⟩, ← ia.cnf.eq, ← ib.cnf.eq]
 
 /-! ### 帰納法 -/
 
-theorem cmpOK_succ {N : Nat} (hN : CmpOK.{u} N) : CmpOK.{u} (N + 1) :=
-  ⟨fun _ _ _ ha hb => cmp_ok hN (by omega) ha hb,
-   fun _ _ _ _ _ ha hg hd => inC_ok hN (by omega) (by omega) ha hg hd⟩
+theorem cmpOK_succ (hS : StationaryHyp.{u}) {N : Nat} (hN : CmpOK.{u} N) : CmpOK.{u} (N + 1) :=
+  ⟨fun _ _ _ ha hb => cmp_ok hS hN (by omega) ha hb,
+   fun _ _ _ _ _ ha hg hd => inC_ok hS hN (by omega) (by omega) ha hg hd⟩
 
-theorem cmpOK_all : ∀ N, CmpOK.{u} N
+theorem cmpOK_all (hS : StationaryHyp.{u}) : ∀ N, CmpOK.{u} N
   | 0 => ⟨fun _ _ h => absurd h (Nat.not_lt_zero _), fun _ _ _ h => absurd h (Nat.not_lt_zero _)⟩
-  | N + 1 => cmpOK_succ (cmpOK_all N)
+  | N + 1 => cmpOK_succ hS (cmpOK_all hS N)
 
 /-- `Good` な項について `cmp` は値の比較と一致する -/
-theorem cmp_correct {a b : Tm} (ha : Good.{u} a) (hb : Good.{u} b) :
+theorem cmp_correct (hS : StationaryHyp.{u}) {a b : Tm} (ha : Good.{u} a) (hb : Good.{u} b) :
     RTKA.cmp a b = ocmp (val.{u} a) (val b) :=
-  (cmpOK_all _).1 a b (Nat.lt_succ_self _) ha hb
+  (cmpOK_all hS _).1 a b (Nat.lt_succ_self _) ha hb
 
 /-- `Good` な項について `inC a g d` は `val a ∈ C(val g, val d)` と一致する（Lemma 5.4） -/
-theorem inC_correct {a g d : Tm} (ha : Good.{u} a) (hg : Good.{u} g)
+theorem inC_correct (hS : StationaryHyp.{u}) {a g d : Tm} (ha : Good.{u} a) (hg : Good.{u} g)
     (hd : Good.{u} d) : RTKA.inC a g d = true ↔ C (val.{u} g) (val d) (val a) :=
-  (cmpOK_all (8 * (a.size + g.size + d.size) + 6)).2 a g d (by omega) (by omega) ha hg hd
+  (cmpOK_all hS (8 * (a.size + g.size + d.size) + 6)).2 a g d (by omega) (by omega) ha hg hd
 
 end
 end OCF.Rathjen
