@@ -2,8 +2,9 @@ import Compact.OCFRathjen.Club
 
 /-! 基数の設定：`K_1 < K_2 < ⋯`、`Λ = sup K_n`、`Ω_ξ`。
 
-* `K_n`（`n ≥ 1`）は正則で、正則基数の極限（弱到達不能）であることだけを課す（`Setting`）。
-  弱コンパクト性は、`M^α` が `K_n` で定常であるという仮定（`Eval.lean` の `StationaryHyp`）で置き換える。
+* `K_n`（`n ≥ 1`）は正則で、正則基数の極限（弱到達不能）であることを課す（`Setting`）。
+  各 `K_n` の弱コンパクト性は `WeakCompact.lean` の公理 `weaklyCompact` として課し、
+  定常性仮定 (S)（`Eval.lean` の `StationaryHyp`）はそこで `stationaryHyp` として導かれる。
 * `Ω_ξ` は `{0} ∪ closure R` の数え上げ。`Ω_0 = 0`、`Ω_{ξ+1}` は正則（`Om_succ_R`）で、
   `Ω` は `Λ` 未満で狭義増加かつ連続、`Ω_{K_n} = K_n`。 -/
 
