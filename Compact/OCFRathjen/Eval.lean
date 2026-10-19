@@ -4,11 +4,12 @@ import Compact.Additive
 /-! 記法系 `T⁺`（`Mbek/rathjen/Additive.lean` の `RTKA`）の項の値と、目標の定理の主張。
 
 * `val`：項の値（`Ψ^ξ_π(α)` は `Psi ξ π α`、`Ξ_n(α)` は `Xi n α`）。
-* `StationaryHyp`：弱コンパクト性の代わりの仮定（Rathjen の Thm. 4.12 にあたる）。
+* `StationaryHyp`：定常性仮定 (S)（Rathjen の Thm. 4.12 にあたる）。
   `1 ≤ n`、`0 < α < K_n^+`、`α ∈ C(α, K_n)` なら `M^α` は `K_n` で定常。
+  弱コンパクト性から `WeakCompact.lean` の `stationaryHyp` として導かれる。
 * `CmpCorrect`：目標。標準形の項について `cmp` が値の大小と一致する。
 
-`StationaryHyp → CmpCorrect` は `Main.lean` の `cmpCorrect_of_stationaryHyp`（`docs/rathjen-semantic.md`）。 -/
+`CmpCorrect` は `Main.lean` の `cmpCorrect`（`docs/rathjen-semantic.md`）。 -/
 
 namespace OCF.Rathjen
 
