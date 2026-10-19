@@ -9,7 +9,7 @@ import Compact.OCFRathjen.Mahlo
 * `Psi_lt_Xi_iff`（Prop. 4.21）：`Ψ^ξ_π(α) < Ξ_m(β)` ⟺ `π ≤ Ξ_m(β)` または `β < α ∧ β ∉ C(α, Ψ^ξ_π(α))`。
 
 `Ξ_m(α)` については、`Ξ_m(α) ∈ M^α` かつ `K_{m-1} < Ξ_m(α) < K_m`（`XiGood`）を仮定する。
-弱コンパクト性から導かれる定常性仮定 (S)（`StationaryHyp`）のもとで、標準形の項の値はこれを満たす（`Xi_mem`）。 -/
+`StationaryHyp` のもとで、標準形の項の値はこれを満たす（`Xi_mem`）。 -/
 
 namespace OCF.Rathjen
 

@@ -1,6 +1,6 @@
 import Compact.OCFRathjen.Correct
 
-/-! 主定理：`CmpCorrect`（弱コンパクト性から導かれる定常性仮定 (S) `stationaryHyp` を用いる）。
+/-! 主定理：`StationaryHyp → CmpCorrect`。
 
 標準形の項（`RTKA.isNF`）は `Good` で（`good_of_isNF`）、`Good` な項について `cmp` は値の比較と
 一致する（`cmp_correct`）。`good_of_isNF` は項の構造についての帰納法で、`isNF` が調べる `cmp`・`inC` の
@@ -55,9 +55,9 @@ theorem good_mOf {pi m : Tm} (h : Good.{u} pi) (hm : RTKA.mOf pi = some m) : Goo
   | _ => simp [RTKA.mOf] at hm
 
 /-- `isNF (Ω_a)` の条件 `a < Ω_a`（`cmp` で調べる）から `val a < Ω_{val a}` -/
-theorem lt_Om_of_lt {a : Tm} (ha : Good.{u} a) (ha0 : a ≠ .zero)
+theorem lt_Om_of_lt (hS : StationaryHyp.{u}) {a : Tm} (ha : Good.{u} a) (ha0 : a ≠ .zero)
     (h : RTKA.lt a (.Om a) = true) : val.{u} a < Om (val a) := by
-  have ia := ha.inv
+  have ia := ha.inv hS
   apply lt_of_le_of_ne (le_Om ia.lt_Λ)
   intro e
   have hfix : Om (val.{u} a) = val a := e.symm
@@ -92,18 +92,18 @@ theorem lt_Om_of_lt {a : Tm} (ha : Good.{u} a) (ha0 : a ≠ .zero)
     | kc m _ => simp
     | om b hb _ hlt =>
       exfalso
-      have hbΛ := hb.inv.lt_Λ
+      have hbΛ := (hb.inv hS).lt_Λ
       have e' := Om_inj (Om_lt_Λ hbΛ) hbΛ hfix
       rw [e'] at hlt
       exact lt_irrefl _ hlt
     | xi n b _ _ _ _ _ =>
       dsimp only
-      rw [cmpOmX_ok (cmpOK_all _) (Nat.le_refl _) ha' ha' (Or.inl ⟨n, b, rfl⟩), hfix,
+      rw [cmpOmX_ok hS (cmpOK_all hS _) (Nat.le_refl _) ha' ha' (Or.inl ⟨n, b, rfl⟩), hfix,
         ocmp_of_eq rfl]
       rfl
     | psi xi pi c _ _ _ _ _ _ _ _ _ _ _ _ =>
       dsimp only
-      rw [cmpOmX_ok (cmpOK_all _) (Nat.le_refl _) ha' ha' (Or.inr ⟨xi, pi, c, rfl⟩), hfix,
+      rw [cmpOmX_ok hS (cmpOK_all hS _) (Nat.le_refl _) ha' ha' (Or.inr ⟨xi, pi, c, rfl⟩), hfix,
         ocmp_of_eq rfl]
       rfl
   unfold RTKA.lt at h
@@ -112,7 +112,7 @@ theorem lt_Om_of_lt {a : Tm} (ha : Good.{u} a) (ha0 : a ≠ .zero)
   simp [RTKA.cmpList] at h
 
 /-- 標準形の項は `Good` -/
-theorem good_of_isNF : ∀ t : Tm, RTKA.isNF t = true → Good.{u} t := by
+theorem good_of_isNF (hS : StationaryHyp.{u}) : ∀ t : Tm, RTKA.isNF t = true → Good.{u} t := by
   intro t
   induction t with
   | zero => intro _; exact Good.zero
@@ -137,14 +137,14 @@ theorem good_of_isNF : ∀ t : Tm, RTKA.isNF t = true → Good.{u} t := by
       subst hhd
       simp only [bne_iff_ne, ne_eq] at hm
       have gh := (summands_good b gb h' (by rw [hs]; exact List.mem_cons_self)).1
-      rw [cmp_correct gh ga, ocmp_eq_gt_iff] at hm
+      rw [cmp_correct hS gh ga, ocmp_eq_gt_iff] at hm
       exact le_of_not_lt hm
   | Om a iha =>
     intro h
     simp only [RTKA.isNF, Bool.and_eq_true, bne_iff_ne, ne_eq] at h
     obtain ⟨⟨hna, ha0⟩, hlt⟩ := h
     have ga := iha hna
-    exact Good.om a ga ha0 (lt_Om_of_lt ga ha0 hlt)
+    exact Good.om a ga ha0 (lt_Om_of_lt hS ga ha0 hlt)
   | Xi n a iha =>
     intro h
     simp only [RTKA.isNF, Bool.and_eq_true, bne_iff_ne, ne_eq, decide_eq_true_eq] at h
@@ -152,10 +152,10 @@ theorem good_of_isNF : ∀ t : Tm, RTKA.isNF t = true → Good.{u} t := by
     have ga := iha hna
     have hlt' : val.{u} a < val (RTKA.succK n) := by
       unfold RTKA.lt at hlt
-      rw [cmp_correct ga (good_succK hn), beq_iff_eq, ocmp_eq_lt_iff] at hlt
+      rw [cmp_correct hS ga (good_succK hn), beq_iff_eq, ocmp_eq_lt_iff] at hlt
       exact hlt
     rw [val_succK] at hlt'
-    exact Good.xi n a hn ga ha0 hlt' ((inC_correct ga ga (Good.kc n hn)).mp hC)
+    exact Good.xi n a hn ga ha0 hlt' ((inC_correct hS ga ga (Good.kc n hn)).mp hC)
   | Psi xi pi a ihxi ihpi iha =>
     intro h
     simp only [RTKA.isNF, Bool.and_eq_true, bne_iff_ne, ne_eq] at h
@@ -164,7 +164,7 @@ theorem good_of_isNF : ∀ t : Tm, RTKA.isNF t = true → Good.{u} t := by
     have gpi := ihpi hnpi
     have ga := iha hna
     have hle' : val.{u} xi ≤ val a := by
-      rw [cmp_correct gxi ga, ocmp_eq_gt_iff] at hle
+      rw [cmp_correct hS gxi ga, ocmp_eq_gt_iff] at hle
       exact le_of_not_lt hle
     cases hmo : RTKA.mOf pi with
     | none => rw [hmo] at hm; simp at hm
@@ -175,17 +175,16 @@ theorem good_of_isNF : ∀ t : Tm, RTKA.isNF t = true → Good.{u} t := by
       have gm := good_mOf gpi hmo
       have hlt' : val.{u} xi < val m := by
         unfold RTKA.lt at hlt
-        rw [cmp_correct gxi gm, beq_iff_eq, ocmp_eq_lt_iff] at hlt
+        rw [cmp_correct hS gxi gm, beq_iff_eq, ocmp_eq_lt_iff] at hlt
         exact hlt
-      exact Good.psi xi pi a m gxi gpi ga hreg hle' ((inC_correct ga ga gpi).mp hCa)
-        ((inC_correct gxi ga gpi).mp hCxi) ((inC_correct gpi ga gpi).mp hCpi) hmo hlt'
-        ((inC_correct gxi gm gpi).mp hCm)
+      exact Good.psi xi pi a m gxi gpi ga hreg hle' ((inC_correct hS ga ga gpi).mp hCa)
+        ((inC_correct hS gxi ga gpi).mp hCxi) ((inC_correct hS gpi ga gpi).mp hCpi) hmo hlt'
+        ((inC_correct hS gxi gm gpi).mp hCm)
 
-/-- 主定理：標準形の項について `cmp` は値の大小・相等と一致する
-（弱コンパクト性から導かれる (S) を用いる） -/
-theorem cmpCorrect : CmpCorrect.{u} := by
+/-- 主定理：`M^α` が `K_n` で定常（`StationaryHyp`）なら、標準形の項について `cmp` は値の大小・相等と一致する -/
+theorem cmpCorrect_of_stationaryHyp (hS : StationaryHyp.{u}) : CmpCorrect.{u} := by
   intro a b ha hb
-  have e := cmp_correct (good_of_isNF a ha) (good_of_isNF b hb)
+  have e := cmp_correct hS (good_of_isNF hS a ha) (good_of_isNF hS b hb)
   refine And.intro ?_ ?_
   · unfold RTKA.lt
     rw [e, beq_iff_eq]
@@ -194,17 +193,17 @@ theorem cmpCorrect : CmpCorrect.{u} := by
     exact ocmp_eq_eq_iff
 
 /-- 系：標準形の項の上で `cmp a b = .eq` なら `a = b` -/
-theorem eq_of_cmp_eq {a b : Tm} (ha : RTKA.isNF a = true)
+theorem eq_of_cmp_eq (hS : StationaryHyp.{u}) {a b : Tm} (ha : RTKA.isNF a = true)
     (hb : RTKA.isNF b = true) (h : RTKA.cmp a b = .eq) : a = b :=
-  val_inj.{u} a b (good_of_isNF a ha) (good_of_isNF b hb)
-    ((cmpCorrect a b ha hb).2.mp h)
+  val_inj.{u} hS a b (good_of_isNF hS a ha) (good_of_isNF hS b hb)
+    (((cmpCorrect_of_stationaryHyp.{u} hS) a b ha hb).2.mp h)
 
 /-- 系：標準形の項の上の `lt` は整礎 -/
-theorem lt_wf :
+theorem lt_wf_of_stationaryHyp (hS : StationaryHyp.{u}) :
     WellFounded (fun a b : {t : Tm // RTKA.isNF t = true} => RTKA.lt a.1 b.1 = true) := by
   refine Subrelation.wf (fun {a b} hab => ?_)
     (InvImage.wf (fun t : {t : Tm // RTKA.isNF t = true} => val.{u} t.1) lt_wellFounded)
-  exact (cmpCorrect a.1 b.1 a.2 b.2).1.mp hab
+  exact ((cmpCorrect_of_stationaryHyp hS) a.1 b.1 a.2 b.2).1.mp hab
 
 end
 end OCF.Rathjen
