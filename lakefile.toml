@@ -1,0 +1,10 @@
+name = "Compact"
+version = "0.1.0"
+defaultTargets = ["compact"]
+
+[[lean_lib]]
+name = "Compact"
+
+[[lean_exe]]
+name = "compact"
+root = "Main"
