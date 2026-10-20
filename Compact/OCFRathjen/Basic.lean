@@ -123,7 +123,168 @@ def cf (α : Ordinal.{u}) : Ordinal.{u} := least (fun β => CofinalFrom β α)
 
 def IsRegular (α : Ordinal.{u}) : Prop := IsLimit α ∧ cf α = α
 
+/-- A regular ordinal cannot inject into a smaller ordinal.  This records the
+initial-ordinal consequence of `cf κ = κ` using the cofinality notion used in
+this development. -/
+theorem IsRegular.no_injective_to_smaller {κ β : Ordinal.{u}}
+    (hκ : IsRegular κ) (hβ : β < κ)
+    (f : (representative κ).Carrier → (representative β).Carrier)
+    (hf : ∀ x y, f x = f y → x = y) : False := by
+  classical
+  let g : (representative β).Carrier → Ordinal.{u} := fun y =>
+    if hy : ∃ x, f x = y then
+      type ((representative κ).below (Classical.choose hy))
+    else 0
+  have hgf : ∀ x, g (f x) = type ((representative κ).below x) := by
+    intro x
+    have hx : ∃ y, f y = f x := ⟨x, rfl⟩
+    have heq : Classical.choose hx = x := hf _ _ (Classical.choose_spec hx)
+    simp [g, hx, heq]
+  have hgbound : ∀ y, g y < κ := by
+    intro y
+    by_cases hy : ∃ x, f x = y
+    · simp only [g, dite_eq_left hy]
+      exact initial_lt κ (Classical.choose hy)
+    · simp [g, hy, hκ.1.1]
+  have hsup : sup g ≤ κ := (sup_le_iff g κ).mpr (fun y => Or.inl (hgbound y))
+  have hκsup : κ ≤ sup g := by
+    apply (not_lt_iff_le (sup g) κ).mp
+    intro hsupκ
+    let ξ := sup g
+    have hξκ : ξ < κ := by simpa [ξ] using hsupκ
+    have hsuccκ : succ ξ < κ := hκ.1.2 ξ hξκ
+    obtain ⟨x, hx⟩ := initial_surjective κ (succ ξ) hsuccκ
+    have hval : g (f x) = succ ξ := by
+      rw [hgf x, ← hx]
+    have hle : succ ξ ≤ sup g := by
+      simpa only [hval] using le_sup g (f x)
+    have hle' : succ ξ ≤ ξ := by simpa [ξ] using hle
+    exact lt_irrefl ξ (lt_of_lt_of_le (lt_succ_self ξ) hle')
+  have hsup_eq : sup g = κ := le_antisymm hsup hκsup
+  have hcof : CofinalFrom β κ := ⟨g, hgbound, hsup_eq⟩
+  have hcf : cf κ ≤ β := least_le _ hcof
+  rw [hκ.2] at hcf
+  exact lt_irrefl β (lt_of_lt_of_le hβ hcf)
+
 def R (ξ : Ordinal.{u}) : Prop := omega < ξ ∧ IsRegular ξ
+
+/-- A cofinal sequence shorter than a Hartogs ordinal would combine the
+injections of all its initial segments into one injection of the Hartogs
+ordinal.  The only cardinal-arithmetic input is an injection `X × X → X`. -/
+theorem no_short_cofinal_map_to_hartogs {X : Type u} {δ : Ordinal.{u}}
+    (hδ : δ < hartogs X) (g : (representative δ).Carrier → Ordinal.{u})
+    (hg : ∀ i, g i < hartogs X) (hgsup : sup g = hartogs X)
+    (pair : X × X → X) (hpair : ∀ a b, pair a = pair b → a = b) : False := by
+  classical
+  let θ := hartogs X
+  obtain ⟨q, hq⟩ := (lt_hartogs_iff_injective X δ).mp hδ
+  let rank : (representative θ).Carrier → Ordinal.{u} := fun x =>
+    type ((representative θ).below x)
+  have hindex (x : (representative θ).Carrier) :
+      ∃ i, rank x < g i := by
+    have hlt : rank x < sup g := by
+      rw [hgsup]
+      exact initial_lt θ x
+    exact (lt_sup_iff g (rank x)).mp hlt
+  let index (x : (representative θ).Carrier) : (representative δ).Carrier :=
+    Classical.choose (hindex x)
+  have hindex_spec (x : (representative θ).Carrier) : rank x < g (index x) :=
+    Classical.choose_spec (hindex x)
+  let embed (i : (representative δ).Carrier) :
+      (representative (g i)).Carrier → X :=
+    Classical.choose (injective_of_lt_hartogs (hg i))
+  have hembed (i : (representative δ).Carrier) :
+      ∀ a b, embed i a = embed i b → a = b :=
+    Classical.choose_spec (injective_of_lt_hartogs (hg i))
+  let Packed := Sigma fun i : (representative δ).Carrier =>
+    (representative (g i)).Carrier
+  let pack (p : Packed) : X × X :=
+    (q p.1, embed p.1 p.2)
+  have hpack : ∀ p r : Packed, pack p = pack r → p = r := by
+    intro p r hpr
+    cases p with
+    | mk i a =>
+      cases r with
+      | mk j b =>
+        have hi : i = j := hq _ _ (congrArg Prod.fst hpr)
+        subst j
+        have hab : a = b := hembed i a b (congrArg Prod.snd hpr)
+        subst b
+        rfl
+  let point (x : (representative θ).Carrier) :
+      (representative (g (index x))).Carrier :=
+    Classical.choose (initial_surjective (g (index x)) (rank x) (hindex_spec x))
+  have hpoint (x : (representative θ).Carrier) :
+      rank x = type ((representative (g (index x))).below (point x)) :=
+    Classical.choose_spec (initial_surjective (g (index x)) (rank x) (hindex_spec x))
+  let code (x : (representative θ).Carrier) : X :=
+    pair (pack ⟨index x, point x⟩)
+  have hcode : ∀ x y, code x = code y → x = y := by
+    intro x y hxy
+    have hp := hpair _ _ hxy
+    have hσ := hpack _ _ hp
+    let measure (p : Packed) : Ordinal.{u} :=
+      type ((representative (g p.1)).below p.2)
+    have hrank := calc
+      rank x = measure ⟨index x, point x⟩ := hpoint x
+      _ = measure ⟨index y, point y⟩ := congrArg measure hσ
+      _ = rank y := (hpoint y).symm
+    exact initial_injective θ x y hrank
+  exact no_injection_hartogs X code hcode
+
+/-- Hartogs is regular when the underlying type admits an injective pairing.
+The lemma above supplies the cofinality part; `hlim` supplies the limit part. -/
+theorem hartogs_regular_of_pair_injective {X : Type u}
+    (hlim : IsLimit (hartogs X)) (pair : X × X → X)
+    (hpair : ∀ a b, pair a = pair b → a = b) : IsRegular (hartogs X) := by
+  let θ := hartogs X
+  have hcofinal : CofinalFrom θ θ := by
+    let f : (representative θ).Carrier → Ordinal.{u} := fun x =>
+      type ((representative θ).below x)
+    have hlt : ∀ x, f x < θ := fun x => initial_lt θ x
+    have hsup : sup f = θ := by
+      apply le_antisymm
+      · apply (sup_le_iff f θ).mpr
+        intro x
+        exact Or.inl (hlt x)
+      · apply (not_lt_iff_le (sup f) θ).mp
+        intro hsupθ
+        let ξ := sup f
+        have hξθ : ξ < θ := by simpa [ξ] using hsupθ
+        obtain ⟨x, hx⟩ := initial_surjective θ (succ ξ) (hlim.2 ξ hξθ)
+        have hvalue : f x = succ ξ := by simpa [f] using hx.symm
+        have hle : succ ξ ≤ sup f := by
+          simpa only [hvalue] using le_sup f x
+        have hle' : succ ξ ≤ ξ := by simpa [ξ] using hle
+        exact lt_irrefl ξ (lt_of_lt_of_le (lt_succ_self ξ) hle')
+    exact ⟨f, hlt, hsup⟩
+  have hcf_le : cf θ ≤ θ := least_le _ hcofinal
+  have hθ_le_cf : θ ≤ cf θ := by
+    apply (not_lt_iff_le (cf θ) θ).mp
+    intro hcf_lt
+    have hcf_def : CofinalFrom (cf θ) θ := by
+      unfold cf
+      exact (least_spec (fun β => CofinalFrom β θ)
+        (Exists.intro θ hcofinal)).1
+    obtain ⟨g, hg, hgsup⟩ := hcf_def
+    exact no_short_cofinal_map_to_hartogs hcf_lt g hg hgsup pair hpair
+  exact ⟨hlim, le_antisymm hcf_le hθ_le_cf⟩
+
+/-- The Hartogs ordinal of the representative of `η` lies strictly above `η`
+and no higher than any regular ordinal `κ` above `η`.  In `Setting.lean`, the
+partition property strengthens this to a strict upper bound below a weakly
+compact ordinal. -/
+theorem IsRegular.hartogs_bounds {κ η : Ordinal.{u}} (hκ : IsRegular κ)
+    (hη : η < κ) :
+    η < hartogs (representative η).Carrier ∧ hartogs (representative η).Carrier ≤ κ := by
+  constructor
+  · apply lt_hartogs_of_injective η (fun x => x)
+    intro x y h
+    exact h
+  · apply (not_lt_iff_le _ _).mp
+    intro hk
+    obtain ⟨f, hf⟩ := (lt_hartogs_iff_injective (representative η).Carrier κ).mp hk
+    exact hκ.no_injective_to_smaller hη f hf
 
 
 end
@@ -435,6 +596,150 @@ theorem omega_le_of_isLimit {α : Ordinal.{u}} (h : IsLimit α) : omega ≤ α :
   (sup_le_iff _ α).mpr (fun k => Or.inl (ordNat_lt_of_isLimit h k.down))
 
 theorem zero_lt_omega : (0 : Ordinal.{u}) < omega := isLimit_omega.1
+
+/-- Every infinite ordinal is equinumerous with its successor. -/
+theorem exists_injective_succ_into_of_omega_le {β : Ordinal.{u}}
+    (hω : omega ≤ β) :
+    ∃ f : (representative (succ β)).Carrier → (representative β).Carrier,
+      ∀ x y, f x = f y → x = y := by
+  classical
+  let code (ξ : Ordinal.{u}) : Ordinal.{u} :=
+    if htop : ξ = β then 0 else if hfinite : ξ < omega then succ ξ else ξ
+  have hcode_lt {ξ : Ordinal.{u}} (hξ : ξ < succ β) : code ξ < β := by
+    have hξle : ξ ≤ β := (lt_succ_iff_le ξ β).mp hξ
+    by_cases htop : ξ = β
+    · simp [code, htop]
+      exact lt_of_lt_of_le zero_lt_omega hω
+    · have hξβ : ξ < β := by
+        cases hξle with
+        | inl h => exact h
+        | inr h => exact False.elim (htop h)
+      by_cases hfinite : ξ < omega
+      · simp [code, htop, hfinite]
+        exact lt_of_lt_of_le (isLimit_omega.2 ξ hfinite) hω
+      · simp [code, htop, hfinite]
+        exact hξβ
+  have hcode_pos {ξ : Ordinal.{u}} (hξ : ξ < β) : 0 < code ξ := by
+    have hnot : ξ ≠ β := ne_of_lt hξ
+    by_cases hfinite : ξ < omega
+    · have hc : code ξ = succ ξ := by simp [code, hnot, hfinite]
+      rw [hc]
+      exact zero_lt_succ ξ
+    · have hc : code ξ = ξ := by simp [code, hnot, hfinite]
+      rw [hc]
+      exact lt_of_lt_of_le zero_lt_omega ((not_lt_iff_le ξ omega).mp hfinite)
+  have hcode_inj {ξ ζ : Ordinal.{u}} (hξ : ξ < succ β) (hζ : ζ < succ β)
+      (heq : code ξ = code ζ) : ξ = ζ := by
+    have hξle : ξ ≤ β := (lt_succ_iff_le ξ β).mp hξ
+    have hζle : ζ ≤ β := (lt_succ_iff_le ζ β).mp hζ
+    by_cases hξtop : ξ = β
+    · subst ξ
+      by_cases hζtop : ζ = β
+      · exact hζtop.symm
+      · have hζβ : ζ < β := by
+          cases hζle with
+          | inl h => exact h
+          | inr h => exact False.elim (hζtop h)
+        have hpos := hcode_pos hζβ
+        have hzero : code β = 0 := by simp [code]
+        rw [hzero] at heq
+        exact False.elim (ne_of_gt hpos heq.symm)
+    · have hξβ : ξ < β := by
+        cases hξle with
+        | inl h => exact h
+        | inr h => exact False.elim (hξtop h)
+      by_cases hζtop : ζ = β
+      · subst ζ
+        have hpos := hcode_pos hξβ
+        have hzero : code β = 0 := by simp [code]
+        rw [hzero] at heq
+        exact False.elim (ne_of_gt hpos heq)
+      · have hζβ : ζ < β := by
+          cases hζle with
+          | inl h => exact h
+          | inr h => exact False.elim (hζtop h)
+        by_cases hξfinite : ξ < omega
+        · by_cases hζfinite : ζ < omega
+          · have hξcode : code ξ = succ ξ := by simp [code, ne_of_lt hξβ, hξfinite]
+            have hζcode : code ζ = succ ζ := by simp [code, ne_of_lt hζβ, hζfinite]
+            rw [hξcode, hζcode] at heq
+            apply le_antisymm
+            · exact (lt_succ_iff_le ξ ζ).mp (heq ▸ lt_succ_self ξ)
+            · exact (lt_succ_iff_le ζ ξ).mp (heq.symm ▸ lt_succ_self ζ)
+          · have hleft : code ξ < omega := by
+              rw [show code ξ = succ ξ from by
+                simp [code, ne_of_lt hξβ, hξfinite]]
+              exact isLimit_omega.2 ξ hξfinite
+            have hright : omega ≤ code ζ := by
+              rw [show code ζ = ζ from by
+                simp [code, ne_of_lt hζβ, hζfinite]]
+              exact (not_lt_iff_le ζ omega).mp hζfinite
+            have hright' : omega ≤ code ξ := by rw [heq]; exact hright
+            exact False.elim (not_lt_of_le hright' hleft)
+        · by_cases hζfinite : ζ < omega
+          · have hleft : omega ≤ code ξ := by
+              rw [show code ξ = ξ from by
+                simp [code, ne_of_lt hξβ, hξfinite]]
+              exact (not_lt_iff_le ξ omega).mp hξfinite
+            have hright : code ζ < omega := by
+              rw [show code ζ = succ ζ from by
+                simp [code, ne_of_lt hζβ, hζfinite]]
+              exact isLimit_omega.2 ζ hζfinite
+            have hleft' : omega ≤ code ζ := by rw [heq] at hleft; exact hleft
+            exact False.elim (not_lt_of_le hleft' hright)
+          · have hξcode : code ξ = ξ := by simp [code, ne_of_lt hξβ, hξfinite]
+            have hζcode : code ζ = ζ := by simp [code, ne_of_lt hζβ, hζfinite]
+            rw [hξcode, hζcode] at heq
+            exact heq
+  let f (x : (representative (succ β)).Carrier) :
+      (representative β).Carrier :=
+    Classical.choose (initial_surjective β (code (type ((representative (succ β)).below x)))
+      (hcode_lt (initial_lt (succ β) x)))
+  have hf_spec (x : (representative (succ β)).Carrier) :
+      code (type ((representative (succ β)).below x)) =
+        type ((representative β).below (f x)) :=
+    Classical.choose_spec (initial_surjective β
+      (code (type ((representative (succ β)).below x)))
+      (hcode_lt (initial_lt (succ β) x)))
+  refine ⟨f, ?_⟩
+  intro x y hxy
+  have hrank : code (type ((representative (succ β)).below x)) =
+      code (type ((representative (succ β)).below y)) := by
+    calc
+      _ = type ((representative β).below (f x)) := hf_spec x
+      _ = type ((representative β).below (f y)) :=
+        congrArg (fun z => type ((representative β).below z)) hxy
+      _ = _ := (hf_spec y).symm
+  exact initial_injective (succ β) x y
+    (hcode_inj (initial_lt (succ β) x) (initial_lt (succ β) y) hrank)
+
+/-- Hartogs of an infinite type is a limit ordinal.  If it were a successor,
+the predecessor embeds into the type and its successor embeds back into the
+predecessor by shifting the finite initial segment. -/
+theorem hartogs_isLimit_of_omega_lt {X : Type u} (hω : omega < hartogs X) :
+    IsLimit (hartogs X) := by
+  let θ := hartogs X
+  apply isLimit_iff_not θ
+    (ne_of_gt (lt_trans 0 omega (hartogs X) zero_lt_omega hω))
+  intro hsucc
+  obtain ⟨β, hθ⟩ := hsucc
+  have hβθ : β < θ := by rw [hθ]; exact lt_succ_self β
+  have hωβ : omega ≤ β := by
+    apply (lt_succ_iff_le omega β).mp
+    rw [← hθ]
+    exact hω
+  obtain ⟨shift, hshift⟩ := exists_injective_succ_into_of_omega_le hωβ
+  obtain ⟨embed, hembed⟩ := (lt_hartogs_iff_injective X β).mp hβθ
+  let iso := representativeOrderIso (representative θ)
+    ((type_representative θ).trans hθ)
+  let f : (representative θ).Carrier → X := fun x => embed (shift (iso.toFun x))
+  have hf : ∀ x y, f x = f y → x = y := by
+    intro x y hxy
+    have h1 := hembed _ _ hxy
+    have h2 := hshift _ _ h1
+    have h3 := congrArg iso.invFun h2
+    simpa only [iso.left_inv] using h3
+  exact no_injection_hartogs X f hf
 
 def natOf (a : Ordinal.{u}) : Nat :=
   open Classical in

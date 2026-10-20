@@ -23,6 +23,65 @@ noncomputable section
 def Unbounded (κ : Ordinal.{u}) (X : Ordinal.{u} → Prop) : Prop :=
   ∀ η, η < κ → ∃ ξ, X ξ ∧ η < ξ ∧ ξ < κ
 
+/-- A function from a regular ordinal into a smaller ordinal has an unbounded
+fiber.  This form of the regularity argument will be used to thin sequences
+of first-difference coordinates. -/
+theorem exists_unbounded_fiber {κ δ : Ordinal.{u}} (hκ : IsRegular κ)
+    (hδ : δ < κ) (f : Ordinal.{u} → Ordinal.{u})
+    (hf : ∀ x, x < κ → f x < δ) :
+    ∃ y, y < δ ∧ Unbounded κ (fun x => x < κ ∧ f x = y) := by
+  classical
+  apply Classical.byContradiction
+  intro hnone
+  have hno : ∀ y, y < δ → ¬ Unbounded κ (fun x => x < κ ∧ f x = y) := by
+    intro y hy hU
+    exact hnone ⟨y, hy, hU⟩
+  have hbound : ∀ y, y < δ →
+      ∃ b, b < κ ∧ ∀ x, x < κ → f x = y → x ≤ b := by
+    intro y hy
+    apply Classical.byContradiction
+    intro hn
+    have hU : Unbounded κ (fun x => x < κ ∧ f x = y) := by
+      intro b hb
+      have hnot : ¬ (∀ x, x < κ → f x = y → x ≤ b) := by
+        intro hle
+        exact hn ⟨b, hb, hle⟩
+      have hex : ∃ x, x < κ ∧ f x = y ∧ ¬ x ≤ b := by
+        apply Classical.byContradiction
+        intro h
+        apply hnot
+        intro x hx hxy
+        by_cases hxb : x ≤ b
+        · exact hxb
+        · exact False.elim (h ⟨x, hx, hxy, hxb⟩)
+      obtain ⟨x, hx, hxy, hxb⟩ := hex
+      exact ⟨x, ⟨hx, hxy⟩, lt_of_not_le hxb, hx⟩
+    exact hno y hy hU
+  let bound : Ordinal.{u} → Ordinal.{u} := fun y =>
+    if hy : y < δ then Classical.choose (hbound y hy) else 0
+  have hbound_lt : ∀ y, bound y < κ := by
+    intro y
+    by_cases hy : y < δ
+    · have heq : bound y = Classical.choose (hbound y hy) := dite_eq_left hy
+      rw [heq]
+      exact (Classical.choose_spec (hbound y hy)).1
+    · have heq : bound y = 0 := dite_eq_right hy
+      rw [heq]
+      exact hκ.pos
+  have hbound_spec : ∀ y, y < δ → ∀ x, x < κ → f x = y → x ≤ bound y := by
+    intro y hy x hx hxy
+    have heq : bound y = Classical.choose (hbound y hy) := dite_eq_left hy
+    rw [heq]
+    exact (Classical.choose_spec (hbound y hy)).2 x hx hxy
+  let s := supLt δ bound
+  have hs : s < κ := hκ.supLt_lt hδ (fun y _ => hbound_lt y)
+  have hsucc : succ s < κ := hκ.1.2 s hs
+  have hfs : f (succ s) < δ := hf (succ s) hsucc
+  have hle₁ : succ s ≤ bound (f (succ s)) := hbound_spec _ hfs _ hsucc rfl
+  have hle₂ : bound (f (succ s)) ≤ s := le_supLt δ bound hfs
+  have hle : succ s ≤ s := le_trans hle₁ hle₂
+  exact lt_irrefl s (lt_of_lt_of_le (lt_succ_self s) hle)
+
 def ClosedBelow (κ : Ordinal.{u}) (X : Ordinal.{u} → Prop) : Prop :=
   ∀ l, l < κ → IsLimitPoint X l → X l
 

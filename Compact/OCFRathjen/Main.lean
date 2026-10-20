@@ -1,4 +1,5 @@
 import Compact.OCFRathjen.Correct
+import Compact.OCFRathjen.WeakCompact
 
 /-! 主定理：`StationaryHyp → CmpCorrect`。
 

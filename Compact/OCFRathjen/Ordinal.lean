@@ -484,6 +484,37 @@ noncomputable def representative (a : Ordinal.{u}) : WellOrder.{u} :=
 theorem type_representative (a : Ordinal.{u}) : type (representative a) = a :=
   Classical.choose_spec (representative_exists a)
 
+/-- 同じ順序数を表す整列集合は順序同型である。 -/
+theorem type_eq_iff_iso {A B : WellOrder.{u}} :
+    type A = type B ↔ Nonempty (WellOrder.Iso A B) := by
+  apply Iff.intro
+  · exact iso_of_type_eq
+  · intro h
+    cases h with
+    | intro e => exact type_eq_of_iso e
+
+/-- Equality of order types gives a concrete order isomorphism, including its
+inverse and the equivalence of the two strict orders. -/
+noncomputable def orderIsoOfTypeEq {A B : WellOrder.{u}} (h : type A = type B) :
+    WellOrder.Iso A B :=
+  Classical.choice (type_eq_iff_iso.mp h)
+
+/-- 選択した代表元は、任意に与えられた表現と順序同型である。 -/
+theorem representative_iso_of_type_eq {a : Ordinal.{u}} (A : WellOrder.{u})
+    (hA : type A = a) : Nonempty (WellOrder.Iso A (representative a)) :=
+  iso_of_type_eq (hA.trans (type_representative a).symm)
+
+/-- A concrete order isomorphism between a well-order and the chosen
+representative of its order type. -/
+noncomputable def representativeOrderIso {a : Ordinal.{u}} (A : WellOrder.{u})
+    (hA : type A = a) : WellOrder.Iso A (representative a) :=
+  orderIsoOfTypeEq (hA.trans (type_representative a).symm)
+
+/-- 同じ順序数の二つの表現は互いに順序同型である。 -/
+theorem representative_unique {a : Ordinal.{u}} {A B : WellOrder.{u}}
+    (hA : type A = a) (hB : type B = a) : Nonempty (WellOrder.Iso A B) :=
+  iso_of_type_eq (hA.trans hB.symm)
+
 theorem initial_lt (a : Ordinal.{u}) (x : (representative a).Carrier) :
     type ((representative a).below x) < a := by
   have h : type ((representative a).below x) < type (representative a) :=
@@ -501,6 +532,37 @@ theorem initial_surjective (a b : Ordinal.{u}) (h : b < a) :
   apply (lt_type_iff b (representative a)).mp
   rw [type_representative a]
   exact h
+
+/-- Any ordinal below the type of a well-order injects into its carrier. -/
+theorem injective_of_lt_type {a : Ordinal.{u}} (A : WellOrder.{u}) (h : a < type A) :
+    ∃ f : (representative a).Carrier → A.Carrier, ∀ x y, f x = f y → x = y := by
+  classical
+  let f : (representative a).Carrier → A.Carrier := fun x =>
+    Classical.choose ((lt_type_iff (type ((representative a).below x)) A).mp
+      (lt_trans _ a (type A) (initial_lt a x) h))
+  have hf : ∀ x, type ((representative a).below x) = type (A.below (f x)) := by
+    intro x
+    exact Classical.choose_spec ((lt_type_iff (type ((representative a).below x)) A).mp
+      (lt_trans _ a (type A) (initial_lt a x) h))
+  refine ⟨f, ?_⟩
+  intro x y hxy
+  apply initial_injective a x y
+  exact (hf x).trans ((congrArg (fun z => type (A.below z)) hxy).trans (hf y).symm)
+
+/-- If `a` is at most the type of a well-order, its representative injects into the carrier. -/
+theorem injective_of_le_type {a : Ordinal.{u}} (A : WellOrder.{u}) (h : a ≤ type A) :
+    ∃ f : (representative a).Carrier → A.Carrier, ∀ x y, f x = f y → x = y := by
+  cases h with
+  | inl hlt => exact injective_of_lt_type A hlt
+  | inr heq =>
+    have htypes : type (representative a) = type A := (type_representative a).trans heq
+    cases iso_of_type_eq htypes with
+    | intro e =>
+      refine ⟨e.toFun, ?_⟩
+      intro x y hxy
+      have h' := congrArg e.invFun hxy
+      rw [e.left_inv x, e.left_inv y] at h'
+      exact h'
 
 theorem exists_min (P : Ordinal.{u} → Prop) (h : ∃ a, P a) :
     ∃ a, P a ∧ ∀ b, b < a → ¬ P b := by
@@ -864,6 +926,11 @@ noncomputable def imageIso {X : Type u} (A : WellOrder.{u}) (f : A.Carrier → X
       (preimage f ⟨f b, Exists.intro b rfl⟩) ↔ A.lt a b
     rw [preimage_image f hf a, preimage_image f hf b]
 
+theorem type_image_eq {X : Type u} (A : WellOrder.{u}) (f : A.Carrier → X)
+    (hf : ∀ a b, f a = f b → a = b) :
+    Ordinal.type (image A f hf).toWellOrder = Ordinal.type A :=
+  Ordinal.type_eq_of_iso (imageIso A f hf).symm
+
 end SubOrder
 
 namespace Ordinal
@@ -884,10 +951,36 @@ theorem lt_hartogs_of_injective {X : Type u} (a : Ordinal.{u})
   rw [← he, type_representative a] at h
   exact h
 
+/-- Every ordinal below the Hartogs ordinal injects into the underlying type. -/
+theorem injective_of_lt_hartogs {X : Type u} {a : Ordinal.{u}} (h : a < hartogs X) :
+    ∃ f : (representative a).Carrier → X, ∀ x y, f x = f y → x = y := by
+  unfold hartogs at h
+  cases (lt_sup_iff (fun r : SubOrder X => succ (type r.toWellOrder)) a).mp h with
+  | intro r hr =>
+    cases injective_of_le_type r.toWellOrder ((lt_succ_iff_le a (type r.toWellOrder)).mp hr) with
+    | intro f hf =>
+      exact ⟨fun x => (f x).1, fun x y hxy => hf x y (Subtype.ext hxy)⟩
+
+/-- The Hartogs ordinal is exactly the first ordinal that does not inject into `X`. -/
+theorem lt_hartogs_iff_injective (X : Type u) (a : Ordinal.{u}) :
+    a < hartogs X ↔ ∃ f : (representative a).Carrier → X, ∀ x y, f x = f y → x = y := by
+  apply Iff.intro
+  · exact injective_of_lt_hartogs
+  · intro h
+    cases h with
+    | intro f hf => exact lt_hartogs_of_injective a f hf
+
 theorem no_injection_hartogs (X : Type u) (f : (representative (hartogs X)).Carrier → X) :
     ¬ (∀ x y, f x = f y → x = y) := by
   intro hf
   exact lt_irrefl (hartogs X) (lt_hartogs_of_injective (hartogs X) f hf)
+
+/-- The Hartogs ordinal cannot inject into any strictly smaller ordinal. -/
+theorem no_injection_hartogs_to_smaller {X : Type u} {β : Ordinal.{u}}
+    (hβ : β < hartogs X) (f : (representative (hartogs X)).Carrier →
+      (representative β).Carrier) (hf : ∀ x y, f x = f y → x = y) : False := by
+  obtain ⟨g, hg⟩ := (lt_hartogs_iff_injective X β).mp hβ
+  exact no_injection_hartogs X (fun x => g (f x)) (fun x y he => hf x y (hg _ _ he))
 
 theorem exists_not_range_lt_hartogs {X : Type u} (f : X → Ordinal.{u}) :
     ∃ a, a < hartogs X ∧ ¬ ∃ x, f x = a := by
