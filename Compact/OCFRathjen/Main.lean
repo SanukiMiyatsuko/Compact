@@ -5,7 +5,10 @@ import Compact.OCFRathjen.WeakCompact
 
 標準形の項（`RTKA.isNF`）は `Good` で（`good_of_isNF`）、`Good` な項について `cmp` は値の比較と
 一致する（`cmp_correct`）。`good_of_isNF` は項の構造についての帰納法で、`isNF` が調べる `cmp`・`inC` の
-条件を、部分項について `cmp_correct`・`inC_correct` で順序数の条件に読み替える。 -/
+条件を、部分項について `cmp_correct`・`inC_correct` で順序数の条件に読み替える。逆向きの `isNF_of_good` と
+合わせて `isNF_iff_good`。
+
+`StationaryHyp` は `WeaklyCompact.lean` で弱コンパクト基数の列から導く（`cmpCorrect_of_weaklyCompact`）。 -/
 
 namespace OCF.Rathjen
 
@@ -149,14 +152,13 @@ theorem good_of_isNF (hS : StationaryHyp.{u}) : ∀ t : Tm, RTKA.isNF t = true �
   | Xi n a iha =>
     intro h
     simp only [RTKA.isNF, Bool.and_eq_true, bne_iff_ne, ne_eq, decide_eq_true_eq] at h
-    obtain ⟨⟨⟨⟨hn, hna⟩, ha0⟩, hlt⟩, hC⟩ := h
+    obtain ⟨⟨⟨⟨hn, hna⟩, ha0⟩, hle⟩, hC⟩ := h
     have ga := iha hna
-    have hlt' : val.{u} a < val (RTKA.succK n) := by
-      unfold RTKA.lt at hlt
-      rw [cmp_correct hS ga (good_succK hn), beq_iff_eq, ocmp_eq_lt_iff] at hlt
-      exact hlt
-    rw [val_succK] at hlt'
-    exact Good.xi n a hn ga ha0 hlt' ((inC_correct hS ga ga (Good.kc n hn)).mp hC)
+    have hle' : val.{u} a ≤ val (RTKA.succK n) := by
+      rw [cmp_correct hS ga (good_succK hn), ocmp_eq_gt_iff] at hle
+      exact le_of_not_lt hle
+    rw [val_succK] at hle'
+    exact Good.xi n a hn ga ha0 hle' ((inC_correct hS ga ga (Good.kc n hn)).mp hC)
   | Psi xi pi a ihxi ihpi iha =>
     intro h
     simp only [RTKA.isNF, Bool.and_eq_true, bne_iff_ne, ne_eq] at h
@@ -181,6 +183,49 @@ theorem good_of_isNF (hS : StationaryHyp.{u}) : ∀ t : Tm, RTKA.isNF t = true �
       exact Good.psi xi pi a m gxi gpi ga hreg hle' ((inC_correct hS ga ga gpi).mp hCa)
         ((inC_correct hS gxi ga gpi).mp hCxi) ((inC_correct hS gpi ga gpi).mp hCpi) hmo hlt'
         ((inC_correct hS gxi gm gpi).mp hCm)
+
+/-- 逆向き：`Good` な項は標準形（`isNF` が調べる `cmp`・`inC` の条件を `cmp_correct`・`inC_correct` で戻す） -/
+theorem isNF_of_good (hS : StationaryHyp.{u}) : ∀ t : Tm, Good.{u} t → RTKA.isNF t = true := by
+  intro t ht
+  induction ht with
+  | zero => rfl
+  | one => rfl
+  | kc n hn => simp [RTKA.isNF, hn]
+  | plus a b ha hb hap hb0 hle iha ihb =>
+    simp only [RTKA.isNF, Bool.and_eq_true, bne_iff_ne, ne_eq]
+    refine ⟨⟨⟨⟨hap, hb0⟩, iha⟩, ihb⟩, ?_⟩
+    cases hs : RTKA.summands b with
+    | nil => exact absurd (summands_eq_nil.mp hs) hb0
+    | cons h l =>
+      simp only [bne_iff_ne, ne_eq]
+      have gh := (summands_good b hb h (by rw [hs]; exact List.mem_cons_self)).1
+      rw [cmp_correct hS gh ha, ocmp_eq_gt_iff]
+      exact not_lt_of_le (hle h (by rw [hs]; rfl))
+  | om a ha ha0 hlt iha =>
+    simp only [RTKA.isNF, Bool.and_eq_true, bne_iff_ne, ne_eq]
+    refine ⟨⟨iha, ha0⟩, ?_⟩
+    unfold RTKA.lt
+    rw [cmp_correct hS ha (Good.om a ha ha0 hlt), beq_iff_eq, ocmp_eq_lt_iff]
+    exact hlt
+  | xi n a hn ha ha0 hle hC iha =>
+    simp only [RTKA.isNF, Bool.and_eq_true, bne_iff_ne, ne_eq, decide_eq_true_eq]
+    refine ⟨⟨⟨⟨hn, iha⟩, ha0⟩, ?_⟩, (inC_correct hS ha ha (Good.kc n hn)).mpr hC⟩
+    rw [cmp_correct hS ha (good_succK hn), ocmp_eq_gt_iff, val_succK]
+    exact not_lt_of_le hle
+  | psi xi pi a m hxi hpi ha hreg hle hCa hCxi hCpi hm hxim hCm ihxi ihpi iha =>
+    simp only [RTKA.isNF, Bool.and_eq_true, bne_iff_ne, ne_eq, hm]
+    refine ⟨⟨⟨⟨⟨⟨⟨⟨ihxi, ihpi⟩, iha⟩, hreg⟩, ?_⟩, (inC_correct hS ha ha hpi).mpr hCa⟩,
+      (inC_correct hS hxi ha hpi).mpr hCxi⟩, (inC_correct hS hpi ha hpi).mpr hCpi⟩, ?_, ?_⟩
+    · rw [cmp_correct hS hxi ha, ocmp_eq_gt_iff]
+      exact not_lt_of_le hle
+    · unfold RTKA.lt
+      rw [cmp_correct hS hxi (good_mOf hpi hm), beq_iff_eq, ocmp_eq_lt_iff]
+      exact hxim
+    · exact (inC_correct hS hxi (good_mOf hpi hm) hpi).mpr hCm
+
+/-- `isNF` は `Good` のちょうどの判定（Def. 5.1 の加法版の条件を過不足なく調べる） -/
+theorem isNF_iff_good (hS : StationaryHyp.{u}) (t : Tm) : RTKA.isNF t = true ↔ Good.{u} t :=
+  ⟨good_of_isNF hS t, isNF_of_good hS t⟩
 
 /-- 主定理：`M^α` が `K_n` で定常（`StationaryHyp`）なら、標準形の項について `cmp` は値の大小・相等と一致する -/
 theorem cmpCorrect_of_stationaryHyp (hS : StationaryHyp.{u}) : CmpCorrect.{u} := by

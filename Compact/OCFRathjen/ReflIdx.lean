@@ -1,7 +1,8 @@
 import Compact.OCFRathjen.ReflB3
 import Compact.OCFRathjen.Pairing
 
-/-! `α < Ω_{K n + 1}` から `K n` への単射（Hartogs）と、閉包点の club。 -/
+/-! `α < Ω_{K n + 1}` から `K n` への単射（Hartogs）、`C(α, K n)` から `K n` への単射（`exists_inj_C`）、
+閉包点の club。 -/
 
 namespace OCF.Rathjen
 
@@ -46,6 +47,38 @@ theorem exists_inj_of_lt_Om_succ {n : Nat} (hn : 1 ≤ n) {α : Ordinal.{u}}
     have e1 := initial_injective κ _ _ e
     have e2 := hf _ _ e1
     exact pointBelow_inj e2
+
+/-- `K n < Ω_{K n + 1}` -/
+theorem K_lt_Om_succK {n : Nat} (hn : 1 ≤ n) : K.{u} n < Om (K n + succ 0) := by
+  have h := Om_lt_Om (by rw [add_one_eq_succ]; exact lt_succ_self (K.{u} n)) (K_add_one_lt_Λ n)
+  rw [Om_K hn] at h
+  exact h
+
+/-- `Ω_{K n + 1}` は非可算正則 -/
+theorem R_Om_succK (n : Nat) : R (Om (K.{u} n + succ 0)) := by
+  rw [add_one_eq_succ]
+  exact Om_succ_R (by rw [← add_one_eq_succ]; exact K_add_one_lt_Λ n)
+
+/-- `C(α, K n)` から `K n` への単射（`|C(α, K n)| < Ω_{K n + 1}` による。`α` には制限が無い） -/
+theorem exists_inj_C {n : Nat} (hn : 1 ≤ n) (α : Ordinal.{u}) :
+    ∃ j : Ordinal.{u} → Ordinal.{u}, (∀ β, j β < K n) ∧
+      ∀ β β', C α (K n) β → C α (K n) β' → j β = j β' → β = β' := by
+  classical
+  obtain ⟨γ, hγ, f, hf, hfinj⟩ := C_small (R_Om_succK n) (K_lt_Om_succK hn) α
+  obtain ⟨j₀, hj₀κ, hj₀inj⟩ := exists_inj_of_lt_Om_succ hn hγ
+  refine ⟨fun β => if C α (K n) β then j₀ (f β) else 0, ?_, ?_⟩
+  · intro β
+    by_cases hβ : C α (K n) β
+    · dsimp only
+      rw [ite_eq_left hβ]
+      exact hj₀κ _ (hf β hβ)
+    · dsimp only
+      rw [ite_eq_right hβ]
+      exact (R_K hn).2.pos
+  · intro β β' hβ hβ' e
+    dsimp only at e
+    rw [ite_eq_left hβ, ite_eq_left hβ'] at e
+    exact hfinj β β' hβ hβ' (hj₀inj _ _ (hf β hβ) (hf β' hβ') e)
 
 theorem Club.congr {κ : Ordinal.{u}} {X Y : Ordinal.{u} → Prop} (h : ∀ ρ, X ρ ↔ Y ρ)
     (hX : Club κ X) : Club κ Y := by

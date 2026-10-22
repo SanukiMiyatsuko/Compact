@@ -56,7 +56,7 @@ inductive Good : Tm → Prop
       Good (.plus a b)
   | om (a : Tm) (ha : Good a) (ha0 : a ≠ .zero) (hlt : val.{u} a < Om (val a)) : Good (.Om a)
   | xi (n : Nat) (a : Tm) (hn : 1 ≤ n) (ha : Good a) (ha0 : a ≠ .zero)
-      (hlt : val.{u} a < Om (K n + succ 0)) (hC : C (val.{u} a) (K n) (val a)) : Good (.Xi n a)
+      (hle : val.{u} a ≤ Om (K n + succ 0)) (hC : C (val.{u} a) (K n) (val a)) : Good (.Xi n a)
   | psi (xi pi a m : Tm) (hxi : Good xi) (hpi : Good pi) (ha : Good a)
       (hreg : RTKA.isRegTerm pi = true) (hle : val.{u} xi ≤ val a)
       (hCa : C (val.{u} a) (val pi) (val a)) (hCxi : C (val.{u} a) (val pi) (val xi))
@@ -243,9 +243,9 @@ theorem Good.inv (hS : StationaryHyp.{u}) {t : Tm} (h : Good.{u} t) : Inv.{u} t 
       xi := fun _ _ h => by cases h
       psi := fun _ _ _ h => by cases h
       psi0 := fun _ _ h => by cases h }
-  | xi n a hn _ ha0 hlt hC iha =>
+  | xi n a hn _ ha0 hle hC iha =>
     have hva0 := iha.pos ha0
-    have good : XiGood n (val.{u} a) := Xi_mem hn (hS n hn (val a) hva0 hlt hC)
+    have good : XiGood n (val.{u} a) := Xi_mem hn (hS n hn (val a) hva0 hle hC)
     have hX : Xi n (val.{u} a) < K n := good.2.2
     have hreg := Xi_reg hva0 hX
     exact {

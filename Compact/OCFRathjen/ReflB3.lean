@@ -1,6 +1,9 @@
 import Compact.OCFRathjen.Collapse
 
-/-! 構造補題 (B3')：`α < Ω_{K_n+1}` のとき、`x ∈ C(α, K_n)` かつ `x < α` なら `x ∈ C(x, K_n)`。 -/
+/-! 構造補題 (B3')：`α ≤ Ω_{K_n+1}` のとき、`x ∈ C(α, K_n)` かつ `x < α` なら `x ∈ C(x, K_n)`。
+
+`α > Ω_{K_n+1}` では成り立たない（`Ψ^0_{K_n^+}(K_n^+) ∈ C(α, K_n)` だが `C(Ψ^0_{K_n^+}(K_n^+), K_n)` には
+入らない。`XiSuccK.lean`）。 -/
 
 namespace OCF.Rathjen
 
@@ -33,8 +36,8 @@ theorem K_add_one_lt_Λ (n : Nat) : K.{u} n + succ 0 < Λ := by
   have hl : IsLimit (K.{u} (n + 1)) := (R_K (Nat.succ_le_succ (Nat.zero_le n))).2.1
   exact lt_trans _ _ _ (hl.succ_lt (K_lt_K_succ n)) (K_lt_Λ (n + 1))
 
-/-- (B3')：`x ∈ C(α, K n)`、`x < α < Ω_{K n + 1}` なら `x ∈ C(x, K n)` -/
-theorem C_self_of_lt {n : Nat} (hn : 1 ≤ n) {α : Ordinal.{u}} (hα : α < Om (K n + succ 0))
+/-- (B3')：`x ∈ C(α, K n)`、`x < α ≤ Ω_{K n + 1}` なら `x ∈ C(x, K n)` -/
+theorem C_self_of_lt {n : Nat} (hn : 1 ≤ n) {α : Ordinal.{u}} (hα : α ≤ Om (K n + succ 0))
     {k : Nat} {x : Ordinal.{u}} (h : Cn α (K n) k x) : x < α → C x (K n) x := by
   unfold Cn at h
   induction h with
@@ -63,7 +66,7 @@ theorem C_self_of_lt {n : Nat} (hn : 1 ≤ n) {α : Ordinal.{u}} (hα : α < Om 
         have hnm : n ≤ m - 1 := by omega
         have h1 : K n < Xi m y := lt_of_le_of_lt (K_le hnm) hsp.2
         have h2 := Om_succ_le_of_R hn hreg.1 h1
-        exact lt_irrefl _ (lt_of_lt_of_le (lt_trans _ _ _ hlt hα) h2)
+        exact lt_irrefl _ (lt_of_lt_of_le (lt_of_lt_of_le hlt hα) h2)
   | psi k ξ π δ hδα hξδ hπ hξ hπC hδ ihξ ihπ ihδ =>
     show Psi ξ π δ < α → C (Psi ξ π δ) (K n) (Psi ξ π δ)
     intro hlt
@@ -80,7 +83,7 @@ theorem C_self_of_lt {n : Nat} (hn : 1 ≤ n) {α : Ordinal.{u}} (hα : α < Om 
           | inr h => exact absurd (h.trans heq).symm (hπ.2.2 n)
         have h2 := Om_succ_le_of_R hn hπR hKπ
         have hπα : π < α := by rw [← heq]; exact hlt
-        exact lt_irrefl π (lt_of_lt_of_le (lt_trans _ _ _ hπα hα) h2)
+        exact lt_irrefl π (lt_of_lt_of_le (lt_of_lt_of_le hπα hα) h2)
       | inl hlt' =>
         have hsp := Psi_spec hlt'
         have hKπ : K n < π := lt_of_le_of_lt hKX hlt'
@@ -92,8 +95,8 @@ theorem C_self_of_lt {n : Nat} (hn : 1 ≤ n) {α : Ordinal.{u}} (hα : α < Om 
           have hC : C δ (Psi ξ π δ) (Om (K n + succ 0)) :=
             C_Om (K_add_one_lt_Λ n) (C_add (C_K _ _ n) (C_one _ _))
           have := hsp.2.2.1 _ hC hlt2
-          exact lt_irrefl _ (lt_trans _ _ _ (lt_trans _ _ _ this hlt) hα)
-        have hδπ : δ < π := by rw [hπeq]; exact lt_trans _ _ _ hδα hα
+          exact lt_irrefl _ (lt_of_lt_of_le (lt_trans _ _ _ this hlt) hα)
+        have hδπ : δ < π := by rw [hπeq]; exact lt_of_lt_of_le hδα hα
         have hδX : δ < Psi ξ π δ := hsp.2.2.1 δ hsp.2.2.2.2 hδπ
         have hξα : ξ < α := lt_of_le_of_lt hξδ hδα
         have c1 : C (Psi ξ π δ) (K n) ξ :=
@@ -103,7 +106,7 @@ theorem C_self_of_lt {n : Nat} (hn : 1 ≤ n) {α : Ordinal.{u}} (hα : α < Om 
           rw [hπeq]; exact C_Om (K_add_one_lt_Λ n) (C_add (C_K _ _ n) (C_one _ _))
         exact C_Psi hδX hξδ hπ c1 c3 c2
 
-theorem C_self_of_C {n : Nat} (hn : 1 ≤ n) {α x : Ordinal.{u}} (hα : α < Om (K n + succ 0))
+theorem C_self_of_C {n : Nat} (hn : 1 ≤ n) {α x : Ordinal.{u}} (hα : α ≤ Om (K n + succ 0))
     (hx : C α (K n) x) (hxα : x < α) : C x (K n) x := by
   cases hx with
   | intro k hk => exact C_self_of_lt hn hα hk hxα

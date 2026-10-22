@@ -3,7 +3,7 @@
 
 M. Rathjen, *Proof theory of reflection*（APAL 68, 1994）§4–§5 の `T(K)` から Veblen 関数を抜き、
 閉包を加法だけにしたもの。Subsp の `OCF/Jaeger` が Jäger の論文に対して行ったのと同じ変更である。
-設計の理由と定義は `docs/rathjen-additive.md`。
+意味論（`C`・`M^α`・`Ξ_n`・`Ψ` の定義）は `OCFRathjen/Stage.lean`、項の値は `OCFRathjen/Eval.lean`。
 
 `T(K)` との違い：
 
@@ -12,14 +12,21 @@ M. Rathjen, *Proof theory of reflection*（APAL 68, 1994）§4–§5 の `T(K)` 
 * 頂上の `K` を弱コンパクト基数の列 `K_1 < K_2 < ⋯` に替えた。`φ` が無いと `K` より上は `K·n + β`
   しか作れないので、`K_n` より上の順序数は `K_n` より上の正則基数（`Ω_{K_n+1}` など）への `Ψ` で作る。
   Jäger の系に頂上が無いのと同じ形で、項は全て `Λ = sup K_n` 未満。
-* `Ξ_n(α) = min(M^α ∩ (K_{n-1}, K_n))`。次数は `α < K_n^+ = Ω_{K_n+1}` に限る。
+* `Ξ_n(α) = min(M^α ∩ (K_{n-1}, K_n))`。次数は `α ≤ K_n^+ = Ω_{K_n+1}` に限る。`Ξ_n(K_n^+)` は `K_n` 未満で
+  （`M^{K_n^+}` は `K_n` で定常）、`α > K_n^+` なら `Ξ_n(α) = K_n` なので、それより先に広げても新しい順序数は
+  出ない（`OCFRathjen/XiSuccK.lean`）。
 
 比較は `T(K)` の Lemma 4.14・4.19、Prop. 4.20・4.21 を、同じ「階」（`K_{n-1} ≤ x < K_n`）の項どうしに
 使い、階が違えば階で比べる。`φ` が無いので、和でない項は全て加法的主数で、和は辞書式に比べる。
 
 `cmp`・`inC`・`isNF` は停止性を証明した全域関数（測度は `8 ·（項の大きさの和）+ 段`）。
 `cmp` が値の大小と一致すること（したがって標準形の上の整礎な全順序であること）は、`M^α` の定常性
-（Rathjen の Thm. 4.12 の拡張）を仮定して `OCFRathjen/Main.lean` で証明した（`docs/rathjen-semantic.md`）。
+（Rathjen の Thm. 4.12 の拡張、`StationaryHyp`）から `OCFRathjen/Main.lean` で証明した。`isNF` は意味論版の
+条件 `Good` と同値（`isNF_iff_good`）。`StationaryHyp` は `OCFRathjen/WeaklyCompact.lean` で弱コンパクト
+基数の列から導き、全体を `cmpCorrect_of_weaklyCompact` にまとめた。
+
+標準形の値の集合はちょうど `C(Λ, 0)`（崩壊関数の閉包）で、各元の標準形は一意
+（`OCFRathjen/Complete.lean` の `nfValue_iff_C_of_wc`。Rathjen の `T(K) = C(K_r, 0)` にあたる）。
 -/
 
 namespace RTKA
@@ -27,7 +34,8 @@ namespace RTKA
 inductive Tm where
   | zero
   | one
-  /-- `K_n`（`n ≥ 1`、`n` 番目の弱コンパクト基数） -/
+  /-- `K_n`（`n ≥ 1`、弱コンパクト基数の増加列 `K_1 < K_2 < ⋯` の第 `n` 項。最小の弱コンパクト基数から
+      数えた `n` 番目とは限らない） -/
   | K (n : Nat)
   /-- `a + b`（`a` は和でない 0 以外の項、`b ≠ 0`） -/
   | plus (a b : Tm)
@@ -261,7 +269,7 @@ def isNF (t : Tm) : Bool :=
        | h :: _ => cmp h a != .gt
        | [] => false)
   | Om a => isNF a && a != zero && lt a t
-  | Xi n a => n ≥ 1 && isNF a && a != zero && lt a (succK n) && inC a a (K n)
+  | Xi n a => n ≥ 1 && isNF a && a != zero && cmp a (succK n) != .gt && inC a a (K n)
   | Psi xi pi a =>
     isNF xi && isNF pi && isNF a && isRegTerm pi && cmp xi a != .gt &&
       inC a a pi && inC xi a pi && inC pi a pi &&

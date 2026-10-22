@@ -1,14 +1,15 @@
 import Compact.OCFRathjen.Collapse
 import Compact.Additive
 
-/-! 記法系 `T⁺`（`Mbek/rathjen/Additive.lean` の `RTKA`）の項の値と、目標の定理の主張。
+/-! 記法系 `T⁺`（`Compact/Additive.lean` の `RTKA`）の項の値と、目標の定理の主張。
 
 * `val`：項の値（`Ψ^ξ_π(α)` は `Psi ξ π α`、`Ξ_n(α)` は `Xi n α`）。
-* `StationaryHyp`：弱コンパクト性の代わりの仮定（Rathjen の Thm. 4.12 にあたる）。
-  `1 ≤ n`、`0 < α < K_n^+`、`α ∈ C(α, K_n)` なら `M^α` は `K_n` で定常。
+* `StationaryHyp`：Rathjen の Thm. 4.12 にあたる定常性。
+  `1 ≤ n`、`0 < α ≤ K_n^+`、`α ∈ C(α, K_n)` なら `M^α` は `K_n` で定常。
 * `CmpCorrect`：目標。標準形の項について `cmp` が値の大小と一致する。
 
-`StationaryHyp → CmpCorrect` は `Main.lean` の `cmpCorrect_of_stationaryHyp`（`docs/rathjen-semantic.md`）。 -/
+`StationaryHyp → CmpCorrect` は `Main.lean` の `cmpCorrect_of_stationaryHyp`。`StationaryHyp` は
+`WeaklyCompact.lean` の `stationaryHyp_of_wc` で弱コンパクト基数の列から導く。 -/
 
 namespace OCF.Rathjen
 
@@ -33,10 +34,10 @@ def val : RTKA.Tm → Ordinal.{u}
 theorem val_succK (n : Nat) : val.{u} (RTKA.succK n) = Om (K n + succ 0) := by
   simp only [RTKA.succK, val]
 
-/-- 弱コンパクト性の代わりの仮定（Thm. 4.12 にあたる）：
-    `1 ≤ n`、`0 < α < K_n^+`、`α ∈ C(α, K_n)` なら `M^α` は `K_n` で定常 -/
+/-- Thm. 4.12 にあたる定常性（`K_n` が弱コンパクトなら成り立つ：`stationaryHyp_of_wc`）：
+    `1 ≤ n`、`0 < α ≤ K_n^+`、`α ∈ C(α, K_n)` なら `M^α` は `K_n` で定常 -/
 def StationaryHyp : Prop :=
-  ∀ n, 1 ≤ n → ∀ α : Ordinal.{u}, 0 < α → α < Om (K n + succ 0) → C α (K n) α →
+  ∀ n, 1 ≤ n → ∀ α : Ordinal.{u}, 0 < α → α ≤ Om (K n + succ 0) → C α (K n) α →
     Stationary (K n) (M α)
 
 /-- 目標：標準形の項について、`cmp` が値の大小・相等と一致する -/

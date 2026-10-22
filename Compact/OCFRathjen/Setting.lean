@@ -3,7 +3,8 @@ import Compact.OCFRathjen.Club
 /-! 基数の設定：`K_1 < K_2 < ⋯`、`Λ = sup K_n`、`Ω_ξ`。
 
 * `K_n`（`n ≥ 1`）は正則で、正則基数の極限（弱到達不能）であることだけを課す（`Setting`）。
-  弱コンパクト性は、`M^α` が `K_n` で定常であるという仮定（`Eval.lean` の `StationaryHyp`）で置き換える。
+  弱コンパクト性（`WeaklyCompactCard`：非可算正則で分割性 `PartitionProp`）は `Setting` に含めず、
+  `WeaklyCompact.lean` で弱コンパクト基数の列から `Setting` と `StationaryHyp`（`Eval.lean`）を導く。
 * `Ω_ξ` は `{0} ∪ closure R` の数え上げ。`Ω_0 = 0`、`Ω_{ξ+1}` は正則（`Om_succ_R`）で、
   `Ω` は `Λ` 未満で狭義増加かつ連続、`Ω_{K_n} = K_n`。 -/
 

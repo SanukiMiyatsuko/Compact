@@ -5,9 +5,10 @@ import Compact.OCFRathjen.ReflIdx
 
 /-! `K n`（`n ≥ 1`）が分割性を持つなら `StageReflectionAt n` が成り立つ。
 
-`α < Ω_{K n + 1}` から `K n` への単射 `j`（Hartogs）で `C(α, K n) ∩ α` を `K n` 個の定常集合
-`M^β` の族として並べ、反射補題 `grl` を、四つの club（`E`、`C(α,ρ) ∩ K n ⊆ ρ`、
-`j[C(α,ρ) ∩ α] ⊆ ρ`、`ρ > max(K(n-1), η₀)`）の共通部分に適用する。 -/
+`C(α, K n)` から `K n` への単射 `j`（`|C(α, K n)| < Ω_{K n + 1}`、`exists_inj_C`）で
+`C(α, K n) ∩ α` を `K n` 個の定常集合 `M^β` の族として並べ、反射補題 `grl` を、四つの club
+（`E`、`C(α,ρ) ∩ K n ⊆ ρ`、`j[C(α,ρ) ∩ α] ⊆ ρ`、`ρ > max(K(n-1), η₀)`）の共通部分に適用する。
+`α ≤ Ω_{K n + 1}` は (B3')（`C_self_of_C`）で `C(α, K n) ∩ α` の元に帰納法の仮定を使うためだけに要る。 -/
 
 namespace OCF.Rathjen
 
@@ -25,7 +26,7 @@ theorem stageReflectionAt_of_partition {n : Nat} (hn : 1 ≤ n) (hpart : Partiti
     StageReflectionAt.{u} n := by
   intro α hα0 hαΩ hCα hIH E hE
   have hκ : R (K.{u} n) := R_K hn
-  obtain ⟨j, hjκ, hjinj⟩ := exists_inj_of_lt_Om_succ hn hαΩ
+  obtain ⟨j, hjκ, hjinj⟩ := exists_inj_C hn α
   let S : Ordinal.{u} → Ordinal.{u} → Prop := fun c ρ =>
     ∀ β, β < α → 0 < β → C α (K n) β → j β = c → M β ρ
   have hS : ∀ c, c < K n → Stationary (K n) (S c) := by
@@ -33,10 +34,10 @@ theorem stageReflectionAt_of_partition {n : Nat} (hn : 1 ≤ n) (hpart : Partiti
     by_cases hex : ∃ β, β < α ∧ 0 < β ∧ C α (K n) β ∧ j β = c
     · obtain ⟨β₀, hβ₀α, hβ₀pos, hβ₀C, hβ₀c⟩ := hex
       have hst : Stationary (K n) (M β₀) :=
-        hIH β₀ hβ₀α hβ₀pos (lt_trans _ _ _ hβ₀α hαΩ) (C_self_of_C hn hαΩ hβ₀C hβ₀α)
+        hIH β₀ hβ₀α hβ₀pos (Or.inl (lt_of_lt_of_le hβ₀α hαΩ)) (C_self_of_C hn hαΩ hβ₀C hβ₀α)
       refine hst.mono ?_
-      intro ρ _ hρ β hβα _ _ hβc
-      have e : β = β₀ := hjinj β β₀ hβα hβ₀α (hβc.trans hβ₀c.symm)
+      intro ρ _ hρ β _ _ hβC hβc
+      have e : β = β₀ := hjinj β β₀ hβC hβ₀C (hβc.trans hβ₀c.symm)
       rw [e]
       exact hρ
     · refine (stationary_isLimit hκ).mono ?_
@@ -47,7 +48,7 @@ theorem stageReflectionAt_of_partition {n : Nat} (hn : 1 ≤ n) (hpart : Partiti
   have hK1 : K (n - 1) < K n := K_lt hn'
   have hμ₀ : omax (K (n - 1)) η₀ < K n := omax_lt hK1 hη₀κ
   have hE2 := club_closedC hκ α hμ₀
-  have hE3 := club_j hn hjκ hμ₀
+  have hE3 := club_j hn (α := α) (fun β _ => hjκ β) hμ₀
   have hEall := Club.inter hκ (Club.inter hκ hE hE2) hE3
   obtain ⟨τ, hτκ, ⟨⟨hτE, hτμ, hτcl⟩, _, hτj⟩, hτR, hτS⟩ := grl hκ hpart hEall hS
   have hτpos : K (n - 1) < τ := lt_of_le_of_lt (le_omax_left _ _) hτμ
