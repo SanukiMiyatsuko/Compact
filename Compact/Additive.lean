@@ -3,7 +3,7 @@
 
 M. Rathjen, *Proof theory of reflection*（APAL 68, 1994）§4–§5 の `T(K)` から Veblen 関数を抜き、
 閉包を加法だけにしたもの。Subsp の `OCF/Jaeger` が Jäger の論文に対して行ったのと同じ変更である。
-意味論（`C`・`M^α`・`Ξ_n`・`Ψ` の定義）は `OCFRathjen/Stage.lean`、項の値は `OCFRathjen/Eval.lean`。
+意味論（`C`・`M^α`・`Ξ_n`・`Ψ` の定義と項の値）は `OCFRathjen/Setting.lean`。
 
 `T(K)` との違い：
 
@@ -14,16 +14,19 @@ M. Rathjen, *Proof theory of reflection*（APAL 68, 1994）§4–§5 の `T(K)` 
   Jäger の系に頂上が無いのと同じ形で、項は全て `Λ = sup K_n` 未満。
 * `Ξ_n(α) = min(M^α ∩ (K_{n-1}, K_n))`。次数は `α ≤ K_n^+ = Ω_{K_n+1}` に限る。`Ξ_n(K_n^+)` は `K_n` 未満で
   （`M^{K_n^+}` は `K_n` で定常）、`α > K_n^+` なら `Ξ_n(α) = K_n` なので、それより先に広げても新しい順序数は
-  出ない（`OCFRathjen/XiSuccK.lean`）。
+  出ない（`OCFRathjen/Complete.lean`）。
 
 比較は `T(K)` の Lemma 4.14・4.19、Prop. 4.20・4.21 を、同じ「階」（`K_{n-1} ≤ x < K_n`）の項どうしに
 使い、階が違えば階で比べる。`φ` が無いので、和でない項は全て加法的主数で、和は辞書式に比べる。
 
 `cmp`・`inC`・`isNF` は停止性を証明した全域関数（測度は `8 ·（項の大きさの和）+ 段`）。
 `cmp` が値の大小と一致すること（したがって標準形の上の整礎な全順序であること）は、`M^α` の定常性
-（Rathjen の Thm. 4.12 の拡張、`StationaryHyp`）から `OCFRathjen/Main.lean` で証明した。`isNF` は意味論版の
-条件 `Good` と同値（`isNF_iff_good`）。`StationaryHyp` は `OCFRathjen/WeaklyCompact.lean` で弱コンパクト
-基数の列から導き、全体を `cmpCorrect_of_weaklyCompact` にまとめた。
+（Rathjen の Thm. 4.12 の拡張、`StationaryHyp`）から `OCFRathjen/Correct.lean` で証明した。`isNF` は意味論版の
+条件 `Good` と同値（`isNF_iff_good`）。`StationaryHyp` は `OCFRathjen/Reflection.lean` で弱コンパクト
+基数の分割性から導き、全体を `cmpCorrect_of_weaklyCompact`（`OCFRathjen/Complete.lean`）にまとめた。
+
+構成的な整列性の証明（`Classical.choice` も大基数の仮定も使わない）は `WF/` にあり、主定理は
+`RTKA.wellFounded_isNF`（`WF/Wmax.lean`）。
 
 標準形の値の集合はちょうど `C(Λ, 0)`（崩壊関数の閉包）で、各元の標準形は一意
 （`OCFRathjen/Complete.lean` の `nfValue_iff_C_of_wc`。Rathjen の `T(K) = C(K_r, 0)` にあたる）。
@@ -62,6 +65,11 @@ def ofSummands : List Tm → Tm
 def isPrincipal : Tm → Bool
   | zero | plus _ _ => false
   | _ => true
+
+theorem summands_plus (a b : Tm) : summands (.plus a b) = a :: summands b := rfl
+
+theorem summands_principal {t : Tm} (h : isPrincipal t = true) : summands t = [t] := by
+  cases t <;> simp_all [isPrincipal, summands]
 
 def isSucc (c : Tm) : Bool := (summands c).getLast? == some one
 
@@ -242,18 +250,6 @@ decreasing_by all_goals ((try simp only [Tm.size]); omega)
 end
 
 def lt (a b : Tm) : Bool := cmp a b == .lt
-
-/-- 標準形の和 `a + b` -/
-def add (a b : Tm) : Tm :=
-  match summands b with
-  | [] => a
-  | y :: _ =>
-    let xs' := ((summands a).reverse.dropWhile fun x => cmp x y == .lt).reverse
-    ofSummands (xs' ++ summands b)
-
-def nat : Nat → Tm
-  | 0 => zero
-  | n + 1 => add (nat n) one
 
 /-- `K_n^+ = Ω_{K_n + 1}` -/
 def succK (n : Nat) : Tm := Om (plus (K n) one)

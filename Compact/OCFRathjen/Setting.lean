@@ -1,10 +1,11 @@
-import Compact.OCFRathjen.Club
+import Compact.Additive
+import Compact.OCFRathjen.Ordinal
 
 /-! 基数の設定：`K_1 < K_2 < ⋯`、`Λ = sup K_n`、`Ω_ξ`。
 
 * `K_n`（`n ≥ 1`）は正則で、正則基数の極限（弱到達不能）であることだけを課す（`Setting`）。
   弱コンパクト性（`WeaklyCompactCard`：非可算正則で分割性 `PartitionProp`）は `Setting` に含めず、
-  `WeaklyCompact.lean` で弱コンパクト基数の列から `Setting` と `StationaryHyp`（`Eval.lean`）を導く。
+  `Complete.lean` で弱コンパクト基数の列から `Setting` と `StationaryHyp` を導く。
 * `Ω_ξ` は `{0} ∪ closure R` の数え上げ。`Ω_0 = 0`、`Ω_{ξ+1}` は正則（`Om_succ_R`）で、
   `Ω` は `Λ` 未満で狭義増加かつ連続、`Ω_{K_n} = K_n`。 -/
 
@@ -86,34 +87,6 @@ theorem lexBelow_total_of_supported {δ : Ordinal.{u}} {a b : Ordinal.{u} → Bo
       · exact False.elim (hn ⟨ξ, hξ, heq⟩)
     | inr hξ => rw [ha ξ hξ, hb ξ hξ]
   exact lexBelow_total_of_diff hdiff
-
-/-- A lexicographic comparison whose first-difference coordinate lies past
-`ε` restricts to the same comparison below `ε`, provided the values at `ε`
-already point in the opposite direction. -/
-theorem lexBelow_shrink {δ ε : Ordinal.{u}} {a b : Ordinal.{u} → Bool}
-    (h : LexBelow δ a b) (hε : ε < δ)
-    (ha : a ε = true) (hb : b ε = false) : LexBelow ε a b := by
-  obtain ⟨ξ, hξ, hax, hbx, hbefore⟩ := h
-  have hξε : ξ < ε := by
-    apply lt_of_not_le
-    intro hle
-    cases hle with
-    | inl hlt =>
-      have heq := hbefore ε hlt
-      have hbad : true = false := by
-        calc
-          true = a ε := ha.symm
-          _ = b ε := heq
-          _ = false := hb
-      cases hbad
-    | inr heq =>
-      subst ε
-      have hbad : true = false := by
-        calc
-          true = a ξ := ha.symm
-          _ = false := hax
-      cases hbad
-  exact ⟨ξ, hξε, hax, hbx, fun η hη => hbefore η hη⟩
 
 /-- Lexicographic comparisons are preserved by replacing either function with
 one that agrees below the comparison bound. -/
@@ -261,9 +234,6 @@ theorem lexLe_antisymm {δ : Ordinal.{u}} {a b : Ordinal.{u} → Bool}
       have hbad := lexBelow_congr (fun _ _ => rfl) hab hba
       exact False.elim (lexBelow_irrefl hbad)
     | inr _hba => exact hab
-
-theorem lexLe_of_le {δ : Ordinal.{u}} {a b : Ordinal.{u} → Bool}
-    (h : LexBelow δ a b) : LexLe δ a b := Or.inl h
 
 theorem lexLe_restrict {δ ε : Ordinal.{u}} {a b : Ordinal.{u} → Bool}
     (h : LexBelow δ a b) : LexLe ε a b := by
@@ -856,122 +826,8 @@ theorem weaklyCompact_hartogs_rep_lt {κ β : Ordinal.{u}}
       simpa only [iso.left_inv] using hinv
     exact False.elim (WeaklyCompactCard.no_injective_bool_sequences hκ hδ f hf)
 
-/-- 正則な `κ` の中では、任意の非有界集合へ制限しても分割性が保たれる。 -/
-theorem PartitionProp.refine_unbounded {κ : Ordinal.{u}} (hκ : R κ)
-    (hpart : PartitionProp κ) {A : Ordinal.{u} → Prop} (hA : Unbounded κ A)
-    (f : Ordinal.{u} → Ordinal.{u} → Bool) :
-    ∃ H, (∀ x, H x → A x) ∧ Unbounded κ H ∧ Homogeneous f H := by
-  have henum : ∀ α, α < κ → EnumDef A α ∧ enum A α < κ :=
-    enum_below_regular hκ.2 (fun η hη => hA η hη)
-  have hcofinal : ∀ η, η < κ → ∃ α, α < κ ∧ η < enum A α := by
-    intro η hη
-    apply Classical.byContradiction
-    intro hn
-    have hb : ∀ β, β < κ → enum A β ≤ η := by
-      intro β hβ
-      exact le_of_not_lt (fun hlt => hn (Exists.intro β (And.intro hβ hlt)))
-    obtain ⟨a, haA, hηa, haκ⟩ := hA η hη
-    have hdef : EnumDef A κ := ⟨a, haA, fun β hβ => lt_of_le_of_lt (hb β hβ) hηa⟩
-    have hk : κ ≤ enum A κ := hdef.le_enum
-    have ha : enum A κ ≤ a := enum_le_of haA (fun β hβ => lt_of_le_of_lt (hb β hβ) hηa)
-    exact not_lt_of_le (le_trans hk ha) haκ
-  let g : Ordinal.{u} → Ordinal.{u} → Bool := fun x y => f (enum A x) (enum A y)
-  obtain ⟨H₀, hH₀κ, hH₀unb, hH₀hom⟩ := hpart g
-  obtain ⟨c, hc⟩ := hH₀hom
-  refine ⟨fun z => ∃ x, H₀ x ∧ z = enum A x, ?_, ?_, ?_⟩
-  · intro z hz
-    obtain ⟨x, hx, rfl⟩ := hz
-    exact (henum x (hH₀κ x hx)).1.mem
-  · intro η hη
-    obtain ⟨α, hακ, hηα⟩ := hcofinal η hη
-    obtain ⟨x, hx, hαx, hxκ⟩ := hH₀unb α hακ
-    have hαx' : enum A α < enum A x := (henum x hxκ).1.lt hαx
-    exact ⟨enum A x, ⟨x, hx, rfl⟩, lt_trans η (enum A α) (enum A x) hηα hαx',
-      (henum x hxκ).2⟩
-  · refine ⟨c, ?_⟩
-    intro x y hx hy hxy
-    obtain ⟨a, ha, rfl⟩ := hx
-    obtain ⟨b, hb, rfl⟩ := hy
-    have habκ : b < κ := hH₀κ b hb
-    have hba : a < b := ((henum b habκ).1.lt_iff (henum a (hH₀κ a ha)).1).mp hxy
-    exact hc a b ha hb hba
-
-/-- The order-orientation consequence remains valid inside any unbounded subset
-of `κ`. -/
-theorem PartitionProp.orient_unbounded {κ : Ordinal.{u}} (hκ : R κ)
-    (hpart : PartitionProp κ) {A : Ordinal.{u} → Prop}
-    (hAκ : ∀ x, A x → x < κ) (hA : Unbounded κ A)
-    {X : Type u} (ltX : X → X → Prop)
-    (htotal : ∀ a b, a ≠ b → ltX a b ∨ ltX b a)
-    (f : (representative κ).Carrier → X) (hf : ∀ x y, f x = f y → x = y) :
-    ∃ H, (∀ x, H x → A x) ∧ Unbounded κ H ∧
-      (OrderMonotoneOn κ H ltX f ∨ OrderAntitoneOn κ H ltX f) := by
-  classical
-  let point : (x : Ordinal.{u}) → x < κ → (representative κ).Carrier :=
-    fun x hx => Classical.choose (initial_surjective κ x hx)
-  let coloring : Ordinal.{u} → Ordinal.{u} → Bool := fun x y =>
-    if hx : x < κ then
-      if hy : y < κ then
-        if ltX (f (point x hx)) (f (point y hy)) then false else true
-      else false
-    else false
-  obtain ⟨H, hHA, hHunb, hHhom⟩ := hpart.refine_unbounded hκ hA coloring
-  have hHκ : ∀ x, H x → x < κ := fun x hx => hAκ x (hHA x hx)
-  obtain ⟨c, hc⟩ := hHhom
-  refine ⟨H, hHA, hHunb, ?_⟩
-  cases c with
-  | false =>
-    left
-    intro x y hx hy hxκ hyκ hxy
-    have hcolor := hc x y hx hy hxy
-    by_cases hlt : ltX (f (point x hxκ)) (f (point y hyκ))
-    · exact hlt
-    · simp [coloring, hxκ, hyκ, hlt] at hcolor
-  | true =>
-    right
-    intro x y hx hy hxκ hyκ hxy
-    have hcolor := hc x y hx hy hxy
-    have hnot : ¬ ltX (f (point x hxκ)) (f (point y hyκ)) := by
-      intro hlt
-      simp [coloring, hxκ, hyκ, hlt] at hcolor
-    have hpoint_ne : point x hxκ ≠ point y hyκ := by
-      intro heq
-      have hxrep := Classical.choose_spec (initial_surjective κ x hxκ)
-      have hyrep := Classical.choose_spec (initial_surjective κ y hyκ)
-      have htype := congrArg (fun z => type ((representative κ).below z)) heq
-      have hxy_eq : x = y := hxrep.trans (htype.trans hyrep.symm)
-      exact (ne_of_lt hxy) hxy_eq
-    cases htotal (f (point x hxκ)) (f (point y hyκ)) (fun heq =>
-        hpoint_ne (hf _ _ heq)) with
-    | inl hlt => exact False.elim (hnot hlt)
-    | inr hgt => exact hgt
-
 /-- 非可算正則性と二分割性を満たす順序数。 -/
 def WeaklyCompactCard (κ : Ordinal.{u}) : Prop := R κ ∧ PartitionProp κ
-
-/-- 定常集合の内部でも、指定した彩色に関する非有界な一様集合を取れる。 -/
-theorem WeaklyCompactCard.refine_stationary {κ : Ordinal.{u}} (hκ : WeaklyCompactCard κ)
-    {S : Ordinal.{u} → Prop} (hS : Stationary κ S)
-    (f : Ordinal.{u} → Ordinal.{u} → Bool) :
-    ∃ H, (∀ x, H x → S x) ∧ Unbounded κ H ∧ Homogeneous f H :=
-  hκ.2.refine_unbounded hκ.1 (hS.unbounded hκ.1) f
-
-/-- On a stationary set, weak compactness yields an unbounded subset whose
-injected order is monotone or reversed. -/
-theorem WeaklyCompactCard.orient_stationary {κ : Ordinal.{u}}
-    (hκ : WeaklyCompactCard κ) {S : Ordinal.{u} → Prop} (hS : Stationary κ S)
-    {X : Type u} (ltX : X → X → Prop)
-    (htotal : ∀ a b, a ≠ b → ltX a b ∨ ltX b a)
-    (f : (representative κ).Carrier → X) (hf : ∀ x y, f x = f y → x = y) :
-    ∃ H, (∀ x, H x → S x) ∧ Unbounded κ H ∧
-      (OrderMonotoneOn κ H ltX f ∨ OrderAntitoneOn κ H ltX f) := by
-  have hS' : Unbounded κ (fun x => S x ∧ x < κ) := by
-    intro η hη
-    cases hS.unbounded hκ.1 η hη with
-    | intro ξ hξ => exact ⟨ξ, ⟨hξ.1, hξ.2.2⟩, hξ.2.1, hξ.2.2⟩
-  obtain ⟨H, hHA, hHunb, hOrient⟩ :=
-    hκ.2.orient_unbounded hκ.1 (fun x hx => hx.2) hS' ltX htotal f hf
-  exact ⟨H, (fun x hx => (hHA x hx).1), hHunb, hOrient⟩
 
 /-- 仮定 `h` が列挙する第 `n+1` 番目の弱コンパクト基数。 -/
 noncomputable def weaklyCompactAt (n : Nat) : Ordinal.{u} :=
@@ -982,17 +838,6 @@ theorem weaklyCompactAt_spec (h : ∀ n : Nat,
     EnumDef.{u} WeaklyCompactCard.{u} (ordNat.{u} n)) (n : Nat) :
     WeaklyCompactCard.{u} (weaklyCompactAt.{u} n) :=
   (h (n + 1)).mem
-
-/-- The fixed enumeration hypothesis alone excludes an injection from an
-enumerated weakly compact ordinal into binary strings of any shorter length. -/
-theorem weaklyCompactAt_no_injective_bool_sequences
-    (h : ∀ n : Nat, EnumDef.{u} WeaklyCompactCard.{u} (ordNat.{u} n))
-    (n : Nat) {δ : Ordinal.{u}} (hδ : δ < weaklyCompactAt.{u} n)
-    (f : (representative (weaklyCompactAt.{u} n)).Carrier →
-      ((representative δ).Carrier → Bool))
-    (hf : ∀ x y, f x = f y → x = y) : False :=
-  WeaklyCompactCard.no_injective_bool_sequences
-    ⟨(weaklyCompactAt_spec h n).1, (weaklyCompactAt_spec h n).2⟩ hδ f hf
 
 /-- The fixed enumeration hypothesis alone places every smaller ordinal's
 Hartogs ordinal below the corresponding weakly compact ordinal. -/
@@ -1059,61 +904,11 @@ theorem weaklyCompactAt_partition (h : ∀ n : Nat,
     EnumDef.{u} WeaklyCompactCard.{u} (ordNat.{u} n)) (n : Nat) :
     PartitionProp (weaklyCompactAt.{u} n) := (weaklyCompactAt_spec h n).2
 
-/-- A weakly compact ordinal from `h` has the uniform-orientation consequence
-for every pairwise-comparable relation on an injected copy of its carrier. -/
-theorem weaklyCompactAt_orient
-    (h : ∀ n : Nat, EnumDef.{u} WeaklyCompactCard.{u} (ordNat.{u} n)) (n : Nat)
-    {X : Type u} (ltX : X → X → Prop)
-    (htotal : ∀ a b, a ≠ b → ltX a b ∨ ltX b a)
-    (f : (representative (weaklyCompactAt.{u} n)).Carrier → X)
-    (hf : ∀ x y, f x = f y → x = y) :
-    ∃ H, (∀ x, H x → x < weaklyCompactAt.{u} n) ∧
-      Unbounded (weaklyCompactAt.{u} n) H ∧
-      (OrderMonotoneOn (weaklyCompactAt.{u} n) H ltX f ∨
-        OrderAntitoneOn (weaklyCompactAt.{u} n) H ltX f) :=
-  (weaklyCompactAt_partition h n).orient ltX htotal f hf
-
-/-- The hypothesis `h` also gives the order-orientation consequence within any
-stationary subset of an enumerated weakly compact ordinal. -/
-theorem weaklyCompactAt_orient_stationary
-    (h : ∀ n : Nat, EnumDef.{u} WeaklyCompactCard.{u} (ordNat.{u} n)) (n : Nat)
-    {S : Ordinal.{u} → Prop} (hS : Stationary (weaklyCompactAt.{u} n) S)
-    {X : Type u} (ltX : X → X → Prop)
-    (htotal : ∀ a b, a ≠ b → ltX a b ∨ ltX b a)
-    (f : (representative (weaklyCompactAt.{u} n)).Carrier → X)
-    (hf : ∀ x y, f x = f y → x = y) :
-    ∃ H, (∀ x, H x → S x) ∧ Unbounded (weaklyCompactAt.{u} n) H ∧
-      (OrderMonotoneOn (weaklyCompactAt.{u} n) H ltX f ∨
-        OrderAntitoneOn (weaklyCompactAt.{u} n) H ltX f) :=
-  (weaklyCompactAt_spec h n).orient_stationary hS ltX htotal f hf
-
-/-- `h` から得られる各段階で、定常集合の中に一様部分集合を取る。 -/
-theorem weaklyCompactAt_refine_stationary
-    (h : ∀ n : Nat, EnumDef.{u} WeaklyCompactCard.{u} (ordNat.{u} n)) (n : Nat)
-    {S : Ordinal.{u} → Prop} (hS : Stationary (weaklyCompactAt.{u} n) S)
-    (f : Ordinal.{u} → Ordinal.{u} → Bool) :
-    ∃ H, (∀ x, H x → S x) ∧ Unbounded (weaklyCompactAt.{u} n) H ∧ Homogeneous f H :=
-  (weaklyCompactAt_spec h n).refine_stationary hS f
-
 /-- `h` の列挙は狭義単調である。 -/
 theorem weaklyCompactAt_lt (h : ∀ n : Nat,
     EnumDef.{u} WeaklyCompactCard.{u} (ordNat.{u} n)) (n : Nat) :
     weaklyCompactAt.{u} n < weaklyCompactAt.{u} (n + 1) :=
   (h (n + 2)).lt (ordNat_lt (Nat.lt_succ_self (n + 1)))
-
-/-- `h` だけから得られる、弱コンパクト基数の狭義増加列。 -/
-structure WeaklyCompactSequence : Type (u + 1) where
-  value : Nat → Ordinal.{u}
-  weaklyCompact : ∀ n, WeaklyCompactCard (value n)
-  increasing : ∀ n, value n < value (n + 1)
-
-/-- 列挙仮定 `h` の標準列。 -/
-noncomputable def weaklyCompactSequenceFromEnum
-    (h : ∀ n : Nat, EnumDef.{u} WeaklyCompactCard.{u} (ordNat.{u} n)) :
-    WeaklyCompactSequence.{u} where
-  value := weaklyCompactAt.{u}
-  weaklyCompact := weaklyCompactAt_spec h
-  increasing := weaklyCompactAt_lt h
 
 /-- `Ω_ξ`：`CardSet` の数え上げ（`Ω_0 = 0`、`Ω_1` は最初の非可算正則基数） -/
 def Om : Ordinal.{u} → Ordinal.{u} := enum CardSet
@@ -1131,7 +926,7 @@ theorem cardSet_limClosed : LimClosed (CardSet.{u}) := by
     | inr hc => exact Exists.intro β (And.intro hc hβ.2)
 
 theorem Om_zero : Om (0 : Ordinal.{u}) = 0 := by
-  exact (le_zero_iff _).mp (enum_le_of (X := CardSet) (Or.inl rfl)
+  exact (le_zero_iff _).mp (enum_le (X := CardSet) (Or.inl rfl)
     (fun β hβ => absurd hβ (not_lt_zero β)))
 
 /-! ### 弱コンパクト基数の列 -/
@@ -1151,10 +946,6 @@ def K : Nat → Ordinal.{u}
   | n + 1 => Setting.Kseq n
 
 def Λ : Ordinal.{u} := sup (fun n : ULift.{u} Nat => K n.down)
-
-theorem K_succ (n : Nat) : K.{u} (n + 1) = Setting.Kseq n := rfl
-
-theorem K_zero : K.{u} 0 = 0 := rfl
 
 theorem R_K {n : Nat} (h : 1 ≤ n) : R (K.{u} n) := by
   cases n with
@@ -1209,8 +1000,6 @@ theorem lt_Λ_iff (α : Ordinal.{u}) : α < Λ ↔ ∃ n, α < K n := by
   · intro h
     cases h with
     | intro n hn => exact lt_trans _ _ _ hn (K_lt_Λ n)
-
-theorem omega_lt_K {n : Nat} (h : 1 ≤ n) : omega < K.{u} n := (R_K h).1
 
 /-- `K_n`（`n ≥ 1`）未満の正則基数は非有界 -/
 theorem K_inacc {n : Nat} (h : 1 ≤ n) (η : Ordinal.{u}) (hη : η < K n) :
@@ -1279,13 +1068,847 @@ theorem Om_succ_R {β : Ordinal.{u}} (hβ : succ β < Λ) : R (Om (succ β)) := 
       cases hlp.2 _ hlt with
       | intro ρ hρ =>
         have hle : Om (succ β) ≤ ρ :=
-          enum_le_of (X := CardSet) (Or.inr (subset_closure hρ.1))
+          enum_le (X := CardSet) (Or.inr (subset_closure hρ.1))
             (fun γ hγ => lt_of_le_of_lt (hβdef.le_of_le (le_of_lt_succ hγ)) hρ.2.1)
         exact absurd hρ.2.2 (not_lt_of_le hle)
 
 /-- `Ω` は極限で連続 -/
 theorem Om_limit {l : Ordinal.{u}} (hl : IsLimit l) (hlΛ : l < Λ) : Om l = supLt l Om :=
   (enum_limit cardSet_limClosed hl (fun _ hβ => Om_def (lt_trans _ _ _ hβ hlΛ))).2
+
+/-! ## `C(α, β)`・`M^α`・`Ξ_m(α)`・`Ψ^ξ_π(α)` の定義（Rathjen, *Proof theory of reflection*, Def. 4.8 の加法版）。
+
+`α` についての再帰で、段 `α` に次をまとめて定める（`Stage`）。
+
+* `C(α, β)`：`β ∪ {1} ∪ {K_m}` を `+`、`Ω`（引数 `< Λ`）、`Ξ_m(ξ)`（`0 < ξ < α`）、
+  `Ψ^ξ_π(δ)`（`ξ ≤ δ < α`、`π ∈ Reg`）で閉じたもの（`K_0 = 0` も入る）。
+* `M^0 = Lim ∩ Λ`。`α > 0` なら
+  `M^α = {π ∈ Reg : C(α, π) ∩ K(π) ⊆ π ∧ α ∈ C(α, π) ∧ ∀ ξ ∈ C(α, π) ∩ α, M^ξ は π で定常}`。
+* `Ξ_m(α) = min({π ∈ M^α : K_{m-1} < π < K_m} ∪ {K_m})`。
+* `Ψ^ξ_π(α) = min({ρ ∈ M^ξ ∩ π : C(α, ρ) ∩ π ⊆ ρ ∧ π, α ∈ C(α, ρ)} ∪ {π})`（`ξ ≤ α`。`ξ > α` なら `π`）。
+
+`C(α, β)` は自然数で段階を付けた帰納的定義 `StageC` の和で、`|C(α, β)| < π`（`C_small`）の証明に段階を使う。 -/
+
+/-- `Reg`：`Λ` 未満の非可算正則基数で、どの `K_n` とも等しくないもの -/
+def IsReg (π : Ordinal.{u}) : Prop := R π ∧ π < Λ ∧ ∀ n, π ≠ K n
+
+/-- `K(π)`：`π` より大きい最小の `K_n` -/
+def Kabove (π : Ordinal.{u}) : Ordinal.{u} := least (fun κ => (∃ n, κ = K n) ∧ π < κ)
+
+/-- 段 `α` で定まるもの -/
+structure Stage : Type (u + 1) where
+  /-- `C β x`：`x ∈ C(α, β)` -/
+  C : Ordinal.{u} → Ordinal.{u} → Prop
+  /-- `M^α` -/
+  M : Ordinal.{u} → Prop
+  /-- `Ξ_m(α)` -/
+  Xi : Nat → Ordinal.{u}
+  /-- `Ψ^ξ_π(α)` -/
+  Psi : Ordinal.{u} → Ordinal.{u} → Ordinal.{u}
+
+/-- `C(α, β)` の段階 `n` の元 -/
+inductive StageC (α : Ordinal.{u}) (prev : (γ : Ordinal.{u}) → γ < α → Stage.{u})
+    (β : Ordinal.{u}) : Nat → Ordinal.{u} → Prop where
+  | lt (n : Nat) (γ : Ordinal.{u}) (h : γ < β) : StageC α prev β n γ
+  | one (n : Nat) : StageC α prev β n (succ 0)
+  | kc (n m : Nat) : StageC α prev β n (K m)
+  | add (n : Nat) (x y : Ordinal.{u}) (hx : StageC α prev β n x) (hy : StageC α prev β n y) :
+      StageC α prev β (n + 1) (x + y)
+  | om (n : Nat) (x : Ordinal.{u}) (hΛ : x < Λ) (hx : StageC α prev β n x) :
+      StageC α prev β (n + 1) (Om x)
+  | xi (n m : Nat) (x : Ordinal.{u}) (hpos : 0 < x) (hα : x < α) (hx : StageC α prev β n x) :
+      StageC α prev β (n + 1) ((prev x hα).Xi m)
+  | psi (n : Nat) (ξ π δ : Ordinal.{u}) (hα : δ < α) (hξδ : ξ ≤ δ) (hπ : IsReg π)
+      (hξ : StageC α prev β n ξ) (hπC : StageC α prev β n π) (hδ : StageC α prev β n δ) :
+      StageC α prev β (n + 1) ((prev δ hα).Psi ξ π)
+
+open Classical in
+/-- 段 `α` での `M^ξ`（`ξ < α` なら前の段、`ξ = α` なら `Mcur`、`ξ > α` なら空） -/
+def Mof (α : Ordinal.{u}) (prev : (γ : Ordinal.{u}) → γ < α → Stage.{u}) (Mcur : Ordinal.{u} → Prop)
+    (ξ : Ordinal.{u}) : Ordinal.{u} → Prop :=
+  if h : ξ < α then (prev ξ h).M else if ξ = α then Mcur else fun _ => False
+
+omit [Setting] in
+theorem Mof_lt {α ξ : Ordinal.{u}} (prev : (γ : Ordinal.{u}) → γ < α → Stage.{u})
+    (Mcur : Ordinal.{u} → Prop) (h : ξ < α) : Mof α prev Mcur ξ = (prev ξ h).M := by
+  unfold Mof
+  rw [dite_eq_left h]
+
+omit [Setting] in
+theorem Mof_self {α : Ordinal.{u}} (prev : (γ : Ordinal.{u}) → γ < α → Stage.{u})
+    (Mcur : Ordinal.{u} → Prop) : Mof α prev Mcur α = Mcur := by
+  unfold Mof
+  rw [dite_eq_right (lt_irrefl α), ite_eq_left rfl]
+
+omit [Setting] in
+theorem Mof_gt {α ξ : Ordinal.{u}} (prev : (γ : Ordinal.{u}) → γ < α → Stage.{u})
+    (Mcur : Ordinal.{u} → Prop) (h : α < ξ) : Mof α prev Mcur ξ = fun _ => False := by
+  unfold Mof
+  rw [dite_eq_right (lt_asymm h), ite_eq_right (ne_of_gt h)]
+
+open Classical in
+def makeStage (α : Ordinal.{u}) (prev : (γ : Ordinal.{u}) → γ < α → Stage.{u}) : Stage.{u} :=
+  let C : Ordinal.{u} → Ordinal.{u} → Prop := fun β x => ∃ n, StageC α prev β n x
+  let M : Ordinal.{u} → Prop := fun ρ =>
+    if α = 0 then IsLimit ρ ∧ ρ < Λ
+    else IsReg ρ ∧ (∀ x, C ρ x → x < Kabove ρ → x < ρ) ∧ C ρ α ∧
+      ∀ ξ (h : ξ < α), C ρ ξ → Stationary ρ (prev ξ h).M
+  { C := C
+    M := M
+    Xi := fun m => least (fun π => (M π ∧ K (m - 1) < π ∧ π < K m) ∨ π = K m)
+    Psi := fun ξ π => least (fun ρ =>
+      (Mof α prev M ξ ρ ∧ ρ < π ∧ (∀ x, C ρ x → x < π → x < ρ) ∧ C ρ π ∧ C ρ α) ∨ ρ = π) }
+
+def stages : Ordinal.{u} → Stage.{u} := lt_wellFounded.fix makeStage
+
+theorem stages_eq (α : Ordinal.{u}) : stages α = makeStage α (fun γ _ => stages γ) :=
+  WellFounded.fix_eq lt_wellFounded makeStage α
+
+/-- `x ∈ C(α, β)` の段階 `n` -/
+def Cn (α β : Ordinal.{u}) (n : Nat) (x : Ordinal.{u}) : Prop :=
+  StageC α (fun γ _ => stages γ) β n x
+
+/-- `x ∈ C(α, β)` -/
+def C (α β x : Ordinal.{u}) : Prop := ∃ n, Cn α β n x
+
+/-- `ρ ∈ M^α` -/
+def M (α ρ : Ordinal.{u}) : Prop := (stages α).M ρ
+
+/-- `Ξ_m(α)` -/
+def Xi (m : Nat) (α : Ordinal.{u}) : Ordinal.{u} := (stages α).Xi m
+
+/-- `Ψ^ξ_π(α)` -/
+def Psi (ξ π α : Ordinal.{u}) : Ordinal.{u} := (stages α).Psi ξ π
+
+/-! ### 定義の展開 -/
+
+open Classical in
+theorem M_zero_iff (ρ : Ordinal.{u}) : M 0 ρ ↔ IsLimit ρ ∧ ρ < Λ := by
+  unfold M
+  rw [stages_eq 0]
+  show (if (0 : Ordinal.{u}) = 0 then _ else _) ↔ _
+  rw [ite_eq_left rfl]
+
+open Classical in
+theorem M_pos_iff {α : Ordinal.{u}} (hα : α ≠ 0) (ρ : Ordinal.{u}) :
+    M α ρ ↔ IsReg ρ ∧ (∀ x, C α ρ x → x < Kabove ρ → x < ρ) ∧ C α ρ α ∧
+      ∀ ξ, ξ < α → C α ρ ξ → Stationary ρ (M ξ) := by
+  unfold M
+  rw [stages_eq α]
+  show (if α = 0 then _ else _) ↔ _
+  rw [ite_eq_right hα]
+  exact Iff.rfl
+
+theorem Xi_eq (m : Nat) (α : Ordinal.{u}) :
+    Xi m α = least (fun π => (M α π ∧ K (m - 1) < π ∧ π < K m) ∨ π = K m) := by
+  unfold Xi M
+  rw [stages_eq α]
+  rfl
+
+theorem Psi_eq {ξ α : Ordinal.{u}} (hξ : ξ ≤ α) (π : Ordinal.{u}) :
+    Psi ξ π α = least (fun ρ =>
+      (M ξ ρ ∧ ρ < π ∧ (∀ x, C α ρ x → x < π → x < ρ) ∧ C α ρ π ∧ C α ρ α) ∨ ρ = π) := by
+  cases hξ with
+  | inl h =>
+    unfold Psi
+    rw [stages_eq α]
+    show least (fun ρ => (Mof α (fun γ _ => stages γ) _ ξ ρ ∧ _) ∨ _) = _
+    rw [Mof_lt _ _ h]
+    rfl
+  | inr h =>
+    subst h
+    unfold Psi M
+    rw [stages_eq ξ]
+    show least (fun ρ => (Mof ξ (fun γ _ => stages γ) _ ξ ρ ∧ _) ∨ _) = _
+    rw [Mof_self]
+    rfl
+
+omit [Setting] in
+theorem least_false_or_eq (Q : Ordinal.{u} → Prop) (π : Ordinal.{u}) :
+    least (fun ρ => ((fun _ => False) ρ ∧ Q ρ) ∨ ρ = π) = π := by
+  have hs := (least_spec (fun ρ => ((fun _ : Ordinal.{u} => False) ρ ∧ Q ρ) ∨ ρ = π)
+    (Exists.intro π (Or.inr rfl))).1
+  cases hs with
+  | inl hf => exact absurd hf.1 id
+  | inr he => exact he
+
+theorem Psi_eq_of_lt {ξ α : Ordinal.{u}} (hξ : α < ξ) (π : Ordinal.{u}) : Psi ξ π α = π := by
+  unfold Psi
+  rw [stages_eq α]
+  show least (fun ρ => (Mof α (fun γ _ => stages γ) _ ξ ρ ∧ _) ∨ _) = _
+  rw [Mof_gt _ _ hξ]
+  exact least_false_or_eq _ π
+
+/-! ### `C(α, β)` の構成子 -/
+
+theorem Cn_lt (α β : Ordinal.{u}) (n : Nat) {x : Ordinal.{u}} (h : x < β) : Cn α β n x :=
+  StageC.lt n x h
+
+theorem Cn_one (α β : Ordinal.{u}) (n : Nat) : Cn α β n (succ 0) := StageC.one n
+
+theorem Cn_K (α β : Ordinal.{u}) (n m : Nat) : Cn α β n (K m) := StageC.kc n m
+
+theorem Cn_zero (α β : Ordinal.{u}) (n : Nat) : Cn α β n 0 := Cn_K α β n 0
+
+theorem Cn_succ {α β : Ordinal.{u}} {n : Nat} {x : Ordinal.{u}} (h : Cn α β n x) :
+    Cn α β (n + 1) x := by
+  have hadd : Cn α β (n + 1) (x + 0) := StageC.add n x 0 h (Cn_zero α β n)
+  rw [add_zero] at hadd
+  exact hadd
+
+theorem Cn_mono {α β : Ordinal.{u}} {n m : Nat} (hnm : n ≤ m) {x : Ordinal.{u}} (h : Cn α β n x) :
+    Cn α β m x := by
+  induction hnm with
+  | refl => exact h
+  | step _ ih => exact Cn_succ ih
+
+theorem C_lt {α β x : Ordinal.{u}} (h : x < β) : C α β x := Exists.intro 0 (Cn_lt α β 0 h)
+
+theorem C_one (α β : Ordinal.{u}) : C α β (succ 0) := Exists.intro 0 (Cn_one α β 0)
+
+theorem C_K (α β : Ordinal.{u}) (m : Nat) : C α β (K m) := Exists.intro 0 (Cn_K α β 0 m)
+
+theorem C_zero (α β : Ordinal.{u}) : C α β 0 := C_K α β 0
+
+theorem C_add {α β x y : Ordinal.{u}} (hx : C α β x) (hy : C α β y) : C α β (x + y) := by
+  cases hx with
+  | intro n hn =>
+    cases hy with
+    | intro m hm =>
+      exact Exists.intro (max n m + 1) (StageC.add (max n m) x y
+        (Cn_mono (Nat.le_max_left n m) hn) (Cn_mono (Nat.le_max_right n m) hm))
+
+theorem C_Om {α β x : Ordinal.{u}} (hΛ : x < Λ) (hx : C α β x) : C α β (Om x) := by
+  cases hx with
+  | intro n hn => exact Exists.intro (n + 1) (StageC.om n x hΛ hn)
+
+theorem C_Xi {α β x : Ordinal.{u}} (m : Nat) (hpos : 0 < x) (hα : x < α) (hx : C α β x) :
+    C α β (Xi m x) := by
+  cases hx with
+  | intro n hn => exact Exists.intro (n + 1) (StageC.xi n m x hpos hα hn)
+
+theorem C_Psi {α β ξ π δ : Ordinal.{u}} (hα : δ < α) (hξδ : ξ ≤ δ) (hπ : IsReg π)
+    (hξ : C α β ξ) (hπC : C α β π) (hδ : C α β δ) : C α β (Psi ξ π δ) := by
+  cases hξ with
+  | intro n hn =>
+    cases hπC with
+    | intro m hm =>
+      cases hδ with
+      | intro k hk =>
+        refine Exists.intro (max n (max m k) + 1) (StageC.psi (max n (max m k)) ξ π δ hα hξδ hπ
+          (Cn_mono (Nat.le_max_left _ _) hn)
+          (Cn_mono (Nat.le_trans (Nat.le_max_left m k) (Nat.le_max_right _ _)) hm)
+          (Cn_mono (Nat.le_trans (Nat.le_max_right m k) (Nat.le_max_right _ _)) hk))
+
+/-! ### Lemma 4.11 (i)：単調性 -/
+
+theorem Cn_mono_arg {α α' β : Ordinal.{u}} (hα : α ≤ α') {n : Nat} {x : Ordinal.{u}}
+    (h : Cn α β n x) : Cn α' β n x := by
+  unfold Cn at h ⊢
+  induction h with
+  | lt n γ hγ => exact StageC.lt n γ hγ
+  | one n => exact StageC.one n
+  | kc n m => exact StageC.kc n m
+  | add n x y _ _ ihx ihy => exact StageC.add n x y ihx ihy
+  | om n x hΛ _ ih => exact StageC.om n x hΛ ih
+  | xi n m x hpos hxα _ ih => exact StageC.xi n m x hpos (lt_of_lt_of_le hxα hα) ih
+  | psi n ξ π δ hδα hξδ hπ _ _ _ ihξ ihπ ihδ =>
+    exact StageC.psi n ξ π δ (lt_of_lt_of_le hδα hα) hξδ hπ ihξ ihπ ihδ
+
+theorem C_mono_arg {α α' β x : Ordinal.{u}} (hα : α ≤ α') (h : C α β x) : C α' β x := by
+  cases h with
+  | intro n hn => exact Exists.intro n (Cn_mono_arg hα hn)
+
+theorem Cn_mono_base {α β β' : Ordinal.{u}} (hβ : β ≤ β') {n : Nat} {x : Ordinal.{u}}
+    (h : Cn α β n x) : Cn α β' n x := by
+  unfold Cn at h ⊢
+  induction h with
+  | lt n γ hγ => exact StageC.lt n γ (lt_of_lt_of_le hγ hβ)
+  | one n => exact StageC.one n
+  | kc n m => exact StageC.kc n m
+  | add n x y _ _ ihx ihy => exact StageC.add n x y ihx ihy
+  | om n x hΛ _ ih => exact StageC.om n x hΛ ih
+  | xi n m x hpos hxα _ ih => exact StageC.xi n m x hpos hxα ih
+  | psi n ξ π δ hδα hξδ hπ _ _ _ ihξ ihπ ihδ => exact StageC.psi n ξ π δ hδα hξδ hπ ihξ ihπ ihδ
+
+theorem C_mono_base {α β β' x : Ordinal.{u}} (hβ : β ≤ β') (h : C α β x) : C α β' x := by
+  cases h with
+  | intro n hn => exact Exists.intro n (Cn_mono_base hβ hn)
+
+/-! ### Lemma 4.11 (iii)：極限での連続性 -/
+
+theorem Cn_limit {α β : Ordinal.{u}} (hβ : IsLimit β) {n : Nat} {x : Ordinal.{u}}
+    (h : Cn α β n x) : ∃ η, η < β ∧ Cn α η n x := by
+  unfold Cn at h
+  induction h with
+  | lt n γ hγ => exact Exists.intro (succ γ) (And.intro (hβ.succ_lt hγ) (StageC.lt n γ (lt_succ_self γ)))
+  | one n => exact Exists.intro 0 (And.intro hβ.1 (StageC.one n))
+  | kc n m => exact Exists.intro 0 (And.intro hβ.1 (StageC.kc n m))
+  | add n x y _ _ ihx ihy =>
+    cases ihx with
+    | intro η₁ h₁ =>
+      cases ihy with
+      | intro η₂ h₂ =>
+        exact Exists.intro (omax η₁ η₂) (And.intro (omax_lt h₁.1 h₂.1)
+          (StageC.add n x y (Cn_mono_base (le_omax_left η₁ η₂) h₁.2)
+            (Cn_mono_base (le_omax_right η₁ η₂) h₂.2)))
+  | om n x hΛ _ ih =>
+    cases ih with
+    | intro η h => exact Exists.intro η (And.intro h.1 (StageC.om n x hΛ h.2))
+  | xi n m x hpos hxα _ ih =>
+    cases ih with
+    | intro η h => exact Exists.intro η (And.intro h.1 (StageC.xi n m x hpos hxα h.2))
+  | psi n ξ π δ hδα hξδ hπ _ _ _ ihξ ihπ ihδ =>
+    cases ihξ with
+    | intro η₁ h₁ =>
+      cases ihπ with
+      | intro η₂ h₂ =>
+        cases ihδ with
+        | intro η₃ h₃ =>
+          refine Exists.intro (omax η₁ (omax η₂ η₃)) (And.intro
+            (omax_lt h₁.1 (omax_lt h₂.1 h₃.1)) (StageC.psi n ξ π δ hδα hξδ hπ
+              (Cn_mono_base (le_omax_left _ _) h₁.2)
+              (Cn_mono_base (le_trans (le_omax_left η₂ η₃) (le_omax_right _ _)) h₂.2)
+              (Cn_mono_base (le_trans (le_omax_right η₂ η₃) (le_omax_right _ _)) h₃.2)))
+
+theorem C_limit {α β x : Ordinal.{u}} (hβ : IsLimit β) (h : C α β x) : ∃ η, η < β ∧ C α η x := by
+  cases h with
+  | intro n hn =>
+    cases Cn_limit hβ hn with
+    | intro η hη => exact Exists.intro η (And.intro hη.1 (Exists.intro n hη.2))
+
+/-! ### `Ψ` と `Ξ` の基本的な性質（Lemma 4.11 (iv)(v)） -/
+
+theorem Psi_le (ξ π α : Ordinal.{u}) : Psi ξ π α ≤ π := by
+  cases le_or_lt ξ α with
+  | inl h =>
+    rw [Psi_eq h]
+    exact least_le _ (Or.inr rfl)
+  | inr h => rw [Psi_eq_of_lt h]; exact le_refl π
+
+/-- `Ψ^ξ_π(α) < π` なら、`Ψ^ξ_π(α) ∈ M^ξ` で `C(α, Ψ^ξ_π(α)) ∩ π ⊆ Ψ^ξ_π(α)`、`π, α ∈ C(α, Ψ^ξ_π(α))` -/
+theorem Psi_spec {ξ π α : Ordinal.{u}} (h : Psi ξ π α < π) :
+    ξ ≤ α ∧ M ξ (Psi ξ π α) ∧ (∀ x, C α (Psi ξ π α) x → x < π → x < Psi ξ π α) ∧
+      C α (Psi ξ π α) π ∧ C α (Psi ξ π α) α := by
+  cases le_or_lt ξ α with
+  | inr hlt => rw [Psi_eq_of_lt hlt] at h; exact absurd h (lt_irrefl π)
+  | inl hle =>
+    refine And.intro hle ?_
+    have hs := (least_spec (fun ρ =>
+      (M ξ ρ ∧ ρ < π ∧ (∀ x, C α ρ x → x < π → x < ρ) ∧ C α ρ π ∧ C α ρ α) ∨ ρ = π)
+      (Exists.intro π (Or.inr rfl))).1
+    rw [← Psi_eq hle] at hs
+    cases hs with
+    | inl hs => exact And.intro hs.1 hs.2.2
+    | inr he => exact absurd he (ne_of_lt h)
+
+/-- `Ψ^ξ_π(α)` は条件を満たす `ρ < π` 以下 -/
+theorem Psi_le_of {ξ π α ρ : Ordinal.{u}} (hξ : ξ ≤ α) (hM : M ξ ρ) (hρ : ρ < π)
+    (hC : ∀ x, C α ρ x → x < π → x < ρ) (hπ : C α ρ π) (hα : C α ρ α) : Psi ξ π α ≤ ρ := by
+  rw [Psi_eq hξ]
+  exact least_le _ (Or.inl ⟨hM, hρ, hC, hπ, hα⟩)
+
+theorem Xi_le (m : Nat) (α : Ordinal.{u}) : Xi m α ≤ K m := by
+  rw [Xi_eq]
+  exact least_le _ (Or.inr rfl)
+
+/-- `Ξ_m(α) < K_m` なら、`Ξ_m(α) ∈ M^α` で `K_{m-1} < Ξ_m(α)` -/
+theorem Xi_spec {m : Nat} {α : Ordinal.{u}} (h : Xi m α < K m) :
+    M α (Xi m α) ∧ K (m - 1) < Xi m α := by
+  have hs := (least_spec (fun π => (M α π ∧ K (m - 1) < π ∧ π < K m) ∨ π = K m)
+    (Exists.intro (K m) (Or.inr rfl))).1
+  rw [← Xi_eq] at hs
+  cases hs with
+  | inl hs => exact And.intro hs.1 hs.2.1
+  | inr he => exact absurd he (ne_of_lt h)
+
+/-- `Ξ_m(α)` は条件を満たす `π` 以下 -/
+theorem Xi_le_of {m : Nat} {α π : Ordinal.{u}} (hM : M α π) (h1 : K (m - 1) < π) (h2 : π < K m) :
+    Xi m α ≤ π := by
+  rw [Xi_eq]
+  exact least_le _ (Or.inl ⟨hM, h1, h2⟩)
+
+end
+
+/-! ## `|C(α, β)| < π`（Lemma 4.11 (ii)）と、`Ψ^ξ_π(α) ∈ M^ξ ∩ π`（Prop. 4.16 の前半）。
+
+* `C_small`：`π` が非可算正則で `β < π` なら `C(α, β)` は `π` 未満の個数。
+* `C_bounded`：さらに `C(α, β) ∩ π` は `π` 未満の順序数で抑えられる。
+* `Psi_lt`：`M^ξ` が `π` で定常で、`ξ ≤ α`、`ξ, π, α ∈ C(α, π)` なら `Ψ^ξ_π(α) < π`
+  （`Psi_spec` と合わせて `Ψ^ξ_π(α) ∈ M^ξ ∩ π`）。 -/
+
+noncomputable section
+
+/-- 正則基数 `κ` 未満の小さい集合は `κ` 未満で抑えられる -/
+theorem Small.bounded {κ : Ordinal.{u}} (hκ : IsRegular κ) {A : Ordinal.{u} → Prop}
+    (h : Small κ A) (hA : ∀ x, A x → x < κ) : ∃ γ, γ < κ ∧ ∀ x, A x → x < γ := by
+  classical
+  cases h with
+  | intro β hβ =>
+    cases hβ.2 with
+    | intro f hf =>
+      let pre : Ordinal.{u} → Ordinal.{u} := fun ζ =>
+        if h : ∃ x, A x ∧ f x = ζ then Classical.choose h else 0
+      have hpre : ∀ x, A x → pre (f x) = x := by
+        intro x hx
+        have h : ∃ y, A y ∧ f y = f x := Exists.intro x (And.intro hx rfl)
+        have e : pre (f x) = Classical.choose h := dite_eq_left h
+        rw [e]
+        have hs := Classical.choose_spec h
+        exact hf.2 _ _ hs.1 hx hs.2
+      have hpreκ : ∀ ζ, pre ζ < κ := by
+        intro ζ
+        by_cases h : ∃ x, A x ∧ f x = ζ
+        · have e : pre ζ = Classical.choose h := dite_eq_left h
+          rw [e]
+          exact hA _ (Classical.choose_spec h).1
+        · have e : pre ζ = 0 := dite_eq_right h
+          rw [e]
+          exact hκ.pos
+      refine Exists.intro (supLt β (fun ζ => succ (pre ζ)))
+        (And.intro (hκ.supLt_lt hβ.1 (fun ζ _ => hκ.1.succ_lt (hpreκ ζ))) ?_)
+      intro x hx
+      apply (lt_supLt_iff _ _ _).mpr
+      refine Exists.intro (f x) (And.intro (hf.1 x hx) ?_)
+      show x < succ (pre (f x))
+      rw [hpre x hx]
+      exact lt_succ_self x
+
+variable [Setting.{u}]
+
+/-! ### Lemma 4.11 (ii) -/
+
+theorem Cn_zero_cases {α β x : Ordinal.{u}} (h : Cn α β 0 x) :
+    x < β ∨ x = succ 0 ∨ ∃ m, x = K m := by
+  unfold Cn at h
+  cases h with
+  | lt _ _ h => exact Or.inl h
+  | one _ => exact Or.inr (Or.inl rfl)
+  | kc _ m => exact Or.inr (Or.inr (Exists.intro m rfl))
+
+theorem Cn_succ_cases {α β x : Ordinal.{u}} {n : Nat} (h : Cn α β (n + 1) x) :
+    Cn α β n x ∨ (∃ y z, Cn α β n y ∧ Cn α β n z ∧ x = y + z) ∨
+      (∃ y, Cn α β n y ∧ x = Om y) ∨
+      (∃ y m, Cn α β n y ∧ x = Xi m y) ∨
+      (∃ ξ π δ, Cn α β n ξ ∧ Cn α β n π ∧ Cn α β n δ ∧ x = Psi ξ π δ) := by
+  unfold Cn at h
+  cases h with
+  | lt _ _ h => exact Or.inl (StageC.lt n x h)
+  | one _ => exact Or.inl (StageC.one n)
+  | kc _ m => exact Or.inl (StageC.kc n m)
+  | add _ y z hy hz => exact Or.inr (Or.inl ⟨y, z, hy, hz, rfl⟩)
+  | om _ y _ hy => exact Or.inr (Or.inr (Or.inl ⟨y, hy, rfl⟩))
+  | xi _ m y _ _ hy => exact Or.inr (Or.inr (Or.inr (Or.inl ⟨y, m, hy, rfl⟩)))
+  | psi _ ξ π δ _ _ _ hξ hπ hδ => exact Or.inr (Or.inr (Or.inr (Or.inr ⟨ξ, π, δ, hξ, hπ, hδ, rfl⟩)))
+
+theorem small_K {κ : Ordinal.{u}} (hω : omega < κ) : Small κ (fun x => ∃ m, x = K m) := by
+  apply ((small_natOrd hω).image (fun y => K (natOf y))).mono
+  intro x hx
+  cases hx with
+  | intro m hm =>
+    refine Exists.intro (ordNat m) (And.intro (Exists.intro m rfl) ?_)
+    rw [natOf_ordNat]
+    exact hm
+
+theorem Cn_small {π β : Ordinal.{u}} (hπ : R π) (hβ : β < π) (α : Ordinal.{u}) :
+    ∀ n, Small π (Cn α β n) := by
+  have hreg := hπ.2
+  have hω := hπ.1
+  intro n
+  induction n with
+  | zero =>
+    have h1 : Small π (fun x => x = succ (0 : Ordinal.{u})) := by
+      apply (small_natOrd hω).mono
+      intro x hx
+      exact Exists.intro 1 hx
+    apply ((Small.union hreg (small_lt hβ) (Small.union hreg h1 (small_K hω)))).mono
+    intro x hx
+    exact Cn_zero_cases hx
+  | succ n ih =>
+    have hadd := Small.image2 hreg ih ih (fun y z => y + z)
+    have hom := Small.image ih Om
+    have hxi := Small.image2 hreg ih (small_natOrd hω) (fun y m => Xi (natOf m) y)
+    have hpsi : Small π (fun x => ∃ ξ, Cn α β n ξ ∧
+        (fun ξ x => ∃ p d, Cn α β n p ∧ Cn α β n d ∧ x = Psi ξ p d) ξ x) :=
+      Small.iUnion hreg ih (fun ξ _ => Small.image2 hreg ih ih (fun p d => Psi ξ p d))
+    apply (Small.union hreg ih (Small.union hreg hadd (Small.union hreg hom
+      (Small.union hreg hxi hpsi)))).mono
+    intro x hx
+    cases Cn_succ_cases hx with
+    | inl h => exact Or.inl h
+    | inr h =>
+      cases h with
+      | inl h => exact Or.inr (Or.inl h)
+      | inr h =>
+        cases h with
+        | inl h =>
+          cases h with
+          | intro y hy => exact Or.inr (Or.inr (Or.inl ⟨y, hy.1, hy.2⟩))
+        | inr h =>
+          cases h with
+          | inl h =>
+            cases h with
+            | intro y hy =>
+              cases hy with
+              | intro m hm =>
+                refine Or.inr (Or.inr (Or.inr (Or.inl ⟨y, ordNat m, hm.1, Exists.intro m rfl, ?_⟩)))
+                rw [natOf_ordNat]
+                exact hm.2
+          | inr h =>
+            cases h with
+            | intro ξ h =>
+              cases h with
+              | intro p h =>
+                cases h with
+                | intro d h =>
+                  exact Or.inr (Or.inr (Or.inr (Or.inr ⟨ξ, h.1, p, d, h.2.1, h.2.2.1, h.2.2.2⟩)))
+
+/-- Lemma 4.11 (ii)：`|C(α, β)| < π` -/
+theorem C_small {π β : Ordinal.{u}} (hπ : R π) (hβ : β < π) (α : Ordinal.{u}) :
+    Small π (C α β) := by
+  apply (Small.iUnion hπ.2 (small_natOrd hπ.1) (A := fun i x => Cn α β (natOf i) x)
+    (fun i _ => Cn_small hπ hβ α (natOf i))).mono
+  intro x hx
+  cases hx with
+  | intro n hn =>
+    refine Exists.intro (ordNat n) (And.intro (Exists.intro n rfl) ?_)
+    show Cn α β (natOf (ordNat n)) x
+    rw [natOf_ordNat]
+    exact hn
+
+/-- `C(α, β) ∩ π` は `π` 未満で抑えられる -/
+theorem C_bounded {π β : Ordinal.{u}} (hπ : R π) (hβ : β < π) (α : Ordinal.{u}) :
+    ∃ γ, γ < π ∧ ∀ x, C α β x → x < π → x < γ := by
+  cases Small.bounded hπ.2 ((C_small hπ hβ α).mono (A := fun x => C α β x ∧ x < π)
+      (fun _ h => h.1)) (fun _ h => h.2) with
+  | intro γ hγ => exact Exists.intro γ (And.intro hγ.1 (fun x hx hxπ => hγ.2 x (And.intro hx hxπ)))
+
+/-! ### Prop. 4.16（前半） -/
+
+/-- `C(α, ρ) ∩ π ⊆ ρ` となる `ρ`（`μ₀ < ρ < π`）は `π` で閉非有界 -/
+theorem club_closedC {π : Ordinal.{u}} (hπ : R π) (α : Ordinal.{u}) {μ₀ : Ordinal.{u}}
+    (hμ₀ : μ₀ < π) :
+    Club π (fun ρ => μ₀ < ρ ∧ ∀ x, C α ρ x → x < π → x < ρ) := by
+  classical
+  apply And.intro
+  · intro η hη
+    -- `δ₀ = max(η, μ₀) + 1`、`δ_{n+1} = max(δ_n + 1, sup(C(α, δ_n) ∩ π))`
+    let bnd : Ordinal.{u} → Ordinal.{u} := fun δ =>
+      if h : δ < π then Classical.choose (C_bounded hπ h α) else 0
+    have hbnd : ∀ δ, δ < π → bnd δ < π ∧ ∀ x, C α δ x → x < π → x < bnd δ := by
+      intro δ hδ
+      have e : bnd δ = Classical.choose (C_bounded hπ hδ α) := dite_eq_left hδ
+      rw [e]
+      exact Classical.choose_spec (C_bounded hπ hδ α)
+    let s : Nat → Ordinal.{u} := fun n =>
+      Nat.rec (succ (omax η μ₀)) (fun _ δ => omax (succ δ) (bnd δ)) n
+    have hs0 : s 0 = succ (omax η μ₀) := rfl
+    have hsS : ∀ n, s (n + 1) = omax (succ (s n)) (bnd (s n)) := fun _ => rfl
+    have hsπ : ∀ n, s n < π := by
+      intro n
+      induction n with
+      | zero => rw [hs0]; exact hπ.2.1.succ_lt (omax_lt hη hμ₀)
+      | succ n ih =>
+        rw [hsS]
+        exact omax_lt (hπ.2.1.succ_lt ih) (hbnd _ ih).1
+    have hs : ∀ n, s n < s (n + 1) := by
+      intro n
+      rw [hsS]
+      exact lt_of_lt_of_le (lt_succ_self _) (le_omax_left _ _)
+    let δs := omegaSup s
+    have hδsπ : δs < π := omegaSup_lt hπ hsπ
+    have hδslim : IsLimit δs := by
+      apply And.intro (lt_of_le_of_lt (zero_le _) (lt_omegaSup hs 0))
+      intro β hβ
+      cases (lt_omegaSup_iff β).mp hβ with
+      | intro n hn => exact lt_of_le_of_lt (succ_le_of_lt hn) (lt_omegaSup hs n)
+    have hlt0 : omax η μ₀ < δs := lt_trans _ _ _ (lt_succ_self _) (lt_omegaSup hs 0)
+    refine Exists.intro δs (And.intro (And.intro
+      (lt_of_le_of_lt (le_omax_right η μ₀) hlt0) ?_)
+      (And.intro (lt_of_le_of_lt (le_omax_left η μ₀) hlt0) hδsπ))
+    intro x hx hxπ
+    cases C_limit hδslim hx with
+    | intro ζ hζ =>
+      cases (lt_omegaSup_iff ζ).mp hζ.1 with
+      | intro n hn =>
+        have hxn : x < bnd (s n) := (hbnd _ (hsπ n)).2 x (C_mono_base (Or.inl hn) hζ.2) hxπ
+        exact lt_trans _ _ _ hxn (lt_of_le_of_lt (by rw [hsS n]; exact le_omax_right _ _)
+          (lt_omegaSup hs (n + 1)))
+  · intro l hlπ hlp
+    have hl : IsLimit l := by
+      apply And.intro hlp.1
+      intro β hβ
+      cases hlp.2 β hβ with
+      | intro γ hγ => exact lt_of_le_of_lt (succ_le_of_lt hγ.2.1) hγ.2.2
+    apply And.intro
+    · cases hlp.2 0 hlp.1 with
+      | intro γ hγ => exact lt_trans _ _ _ hγ.1.1 hγ.2.2
+    · intro x hx hxπ
+      cases C_limit hl hx with
+      | intro ζ hζ =>
+        cases hlp.2 ζ hζ.1 with
+        | intro ρ hρ =>
+          exact lt_trans _ _ _ (hρ.1.2 x (C_mono_base (Or.inl hρ.2.1) hζ.2) hxπ) hρ.2.2
+
+/-- Prop. 4.16（前半）：`M^ξ` が `π` で定常、`ξ ≤ α`、`ξ, π, α ∈ C(α, π)` なら `Ψ^ξ_π(α) < π` -/
+theorem Psi_lt {ξ π α : Ordinal.{u}} (hπ : R π) (hstat : Stationary π (M ξ)) (hξα : ξ ≤ α)
+    (hξ : C α π ξ) (hπC : C α π π) (hα : C α π α) : Psi ξ π α < π := by
+  have hl := hπ.2.1
+  cases C_limit hl hξ with
+  | intro η₁ h₁ =>
+    cases C_limit hl hπC with
+    | intro η₂ h₂ =>
+      cases C_limit hl hα with
+      | intro η₃ h₃ =>
+        let μ₀ := omax η₁ (omax η₂ η₃)
+        have hμ₀ : μ₀ < π := omax_lt h₁.1 (omax_lt h₂.1 h₃.1)
+        cases hstat _ (club_closedC hπ α hμ₀) with
+        | intro ν hν =>
+          have hle : ∀ η, η ≤ μ₀ → η ≤ ν := fun η h => le_trans h (Or.inl hν.2.1.1)
+          apply lt_of_le_of_lt _ hν.1
+          exact Psi_le_of hξα hν.2.2 hν.1 hν.2.1.2
+            (C_mono_base (hle _ (le_trans (le_omax_left η₂ η₃) (le_omax_right _ _))) h₂.2)
+            (C_mono_base (hle _ (le_trans (le_omax_right η₂ η₃) (le_omax_right _ _))) h₃.2)
+
+/-! ## 記法系 `T⁺`（`Compact/Additive.lean` の `RTKA`）の項の値と、目標の定理の主張。
+
+* `val`：項の値（`Ψ^ξ_π(α)` は `Psi ξ π α`、`Ξ_n(α)` は `Xi n α`）。
+* `StationaryHyp`：Rathjen の Thm. 4.12 にあたる定常性。
+  `1 ≤ n`、`0 < α ≤ K_n^+`、`α ∈ C(α, K_n)` なら `M^α` は `K_n` で定常。
+* `CmpCorrect`：目標。標準形の項について `cmp` が値の大小と一致する。
+
+`StationaryHyp → CmpCorrect` は `Correct.lean` の `cmpCorrect_of_stationaryHyp`。`StationaryHyp` は
+`Complete.lean` の `stationaryHyp_of_wc` で弱コンパクト基数の列から導く。 -/
+
+/-- 項の値 -/
+def val : RTKA.Tm → Ordinal.{u}
+  | .zero => 0
+  | .one => succ 0
+  | .K n => K n
+  | .plus a b => val a + val b
+  | .Om a => Om (val a)
+  | .Xi n a => Xi n (val a)
+  | .Psi xi pi a => Psi (val xi) (val pi) (val a)
+
+theorem val_succK (n : Nat) : val.{u} (RTKA.succK n) = Om (K n + succ 0) := by
+  simp only [RTKA.succK, val]
+
+/-- Thm. 4.12 にあたる定常性（`K_n` が弱コンパクトなら成り立つ：`stationaryHyp_of_wc`）：
+    `1 ≤ n`、`0 < α ≤ K_n^+`、`α ∈ C(α, K_n)` なら `M^α` は `K_n` で定常 -/
+def StationaryHyp : Prop :=
+  ∀ n, 1 ≤ n → ∀ α : Ordinal.{u}, 0 < α → α ≤ Om (K n + succ 0) → C α (K n) α →
+    Stationary (K n) (M α)
+
+/-- 目標：標準形の項について、`cmp` が値の大小・相等と一致する -/
+def CmpCorrect : Prop :=
+  ∀ a b : RTKA.Tm, RTKA.isNF a = true → RTKA.isNF b = true →
+    (RTKA.lt a b = true ↔ val.{u} a < val b) ∧ (RTKA.cmp a b = .eq ↔ val.{u} a = val b)
+
+/-- `M^α` が `K_m` で定常なら `K_{m-1} < Ξ_m(α) < K_m` で `Ξ_m(α) ∈ M^α` -/
+theorem Xi_lt {m : Nat} (hm : 1 ≤ m) {α : Ordinal.{u}} (hstat : Stationary (K m) (M α)) :
+    Xi m α < K m := by
+  have hlt : K (m - 1) < K m := K_lt (Nat.sub_lt hm Nat.one_pos)
+  cases hstat _ (club_gt (R_K hm) hlt) with
+  | intro π hπ => exact lt_of_le_of_lt (Xi_le_of hπ.2.2 hπ.2.1 hπ.1) hπ.1
+
+theorem Xi_mem {m : Nat} (hm : 1 ≤ m) {α : Ordinal.{u}} (hstat : Stationary (K m) (M α)) :
+    M α (Xi m α) ∧ K (m - 1) < Xi m α ∧ Xi m α < K m :=
+  let h := Xi_spec (Xi_lt hm hstat)
+  ⟨h.1, h.2, Xi_lt hm hstat⟩
+
+end
+
+/-! ## `M^ξ` の定常性から `M^ξ` への所属を得る（Lemma 4.11 (vi)(vii)）。
+
+* `M_of_stationary`（4.11 (vii)）：`π ∈ Reg` で `M^ξ` が `π` で定常なら `π ∈ M^ξ`。
+* `M_of_M`（4.11 (vi)）：`π ∈ M^α` で `ξ ∈ C(α, π) ∩ α` なら `π ∈ M^ξ`。
+* `Psi_not_stationary`, `Psi_not_M`（Prop. 4.16 後半）：`ξ > 0` で `Ψ^ξ_π(α) < π` なら、
+  `M^ξ` は `Ψ^ξ_π(α)` で定常でなく、`β > ξ` について `Ψ^ξ_π(α) ∉ M^β`。
+
+準備として、`K(ρ)` が `(K_{n-1}, K_n)` で一定であることと、閉非有界集合の極限点の集合が閉非有界であることを示す。 -/
+
+noncomputable section
+
+/-! ### 閉非有界集合の極限点 -/
+
+/-- 閉非有界集合の極限点全体は閉非有界 -/
+theorem Club.limitPoints {κ : Ordinal.{u}} (hκ : R κ) {U : Ordinal.{u} → Prop} (hU : Club κ U) :
+    Club κ (IsLimitPoint U) := by
+  apply And.intro
+  · intro η hη
+    let s : Nat → Ordinal.{u} := fun n => Nat.rec η (fun _ δ => nextAbove κ U hU.1 δ) n
+    have hsS : ∀ n, s (n + 1) = nextAbove κ U hU.1 (s n) := fun _ => rfl
+    have hsp : ∀ n, s n < κ ∧ U (s (n + 1)) ∧ s n < s (n + 1) := by
+      intro n
+      induction n with
+      | zero =>
+        have h := nextAbove_spec hU.1 hη
+        exact ⟨hη, h.1, h.2.1⟩
+      | succ n ih =>
+        have h1 : s (n + 1) < κ := by rw [hsS n]; exact (nextAbove_spec hU.1 ih.1).2.2
+        have h2 := nextAbove_spec hU.1 h1
+        rw [hsS (n + 1)]
+        exact ⟨h1, h2.1, h2.2.1⟩
+    have hs : ∀ n, s n < s (n + 1) := fun n => (hsp n).2.2
+    refine Exists.intro (omegaSup s) (And.intro (omegaSup_isLimitPoint hs (fun n => (hsp n).2.1))
+      (And.intro (lt_omegaSup hs 0) (omegaSup_lt hκ (fun n => (hsp n).1))))
+  · intro l _ hlp
+    apply And.intro hlp.1
+    intro η hη
+    cases hlp.2 η hη with
+    | intro ρ hρ =>
+      cases hρ.1.2 η hρ.2.1 with
+      | intro ζ hζ => exact Exists.intro ζ (And.intro hζ.1 (And.intro hζ.2.1 (lt_trans _ _ _ hζ.2.2 hρ.2.2)))
+
+/-- `ρ` が `U` の極限点で `U` が `κ` で閉なら、`U` は `ρ` で閉非有界 -/
+theorem Club.below {κ ρ : Ordinal.{u}} {U : Ordinal.{u} → Prop} (hU : Club κ U) (hρκ : ρ < κ)
+    (hρ : IsLimitPoint U ρ) : Club ρ U := by
+  apply And.intro
+  · intro η hη
+    cases hρ.2 η hη with
+    | intro ζ hζ => exact Exists.intro ζ hζ
+  · intro l hl hlp
+    exact hU.2 l (lt_trans _ _ _ hl hρκ) hlp
+
+variable [Setting.{u}]
+
+/-! ### `K(ρ)` -/
+
+theorem exists_level_aux (π : Ordinal.{u}) :
+    ∀ N, π < K N → ∃ n, π < K n ∧ ∀ m, m < n → K m ≤ π := by
+  intro N
+  induction N with
+  | zero => intro h; exact absurd h (not_lt_zero π)
+  | succ N ih =>
+    intro h
+    cases lt_or_le π (K N) with
+    | inl h' => exact ih h'
+    | inr h' =>
+      refine Exists.intro (N + 1) (And.intro h ?_)
+      intro m hm
+      exact le_trans (K_le (Nat.le_of_lt_succ hm)) h'
+
+/-- `π < Λ` なら `π < K_n` となる最小の `n` がある -/
+theorem exists_level {π : Ordinal.{u}} (hπ : π < Λ) : ∃ n, π < K n ∧ ∀ m, m < n → K m ≤ π := by
+  cases (lt_Λ_iff π).mp hπ with
+  | intro N hN => exact exists_level_aux π N hN
+
+theorem Kabove_eq {π : Ordinal.{u}} {n : Nat} (h1 : π < K n) (h2 : ∀ m, m < n → K m ≤ π) :
+    Kabove π = K n := by
+  have hP : (∃ k, K n = K k) ∧ π < K n := And.intro (Exists.intro n rfl) h1
+  apply le_antisymm (least_le _ hP)
+  apply le_of_not_lt
+  intro hlt
+  have hs := (least_spec (fun κ => (∃ k, κ = K k) ∧ π < κ) (Exists.intro _ hP)).1
+  cases hs.1 with
+  | intro k hk =>
+    have hltk : K k < K n := by rw [← hk]; exact hlt
+    have hπk : π < K k := by rw [← hk]; exact hs.2
+    exact absurd hπk (not_lt_of_le (h2 k (K_lt_iff.mp hltk)))
+
+/-- `π ∈ Reg` なら `K_{n-1} < π < K_n`（`1 ≤ n`）となる `n` があり、`K(π) = K_n` -/
+theorem IsReg.level {π : Ordinal.{u}} (hπ : IsReg π) :
+    ∃ n, 1 ≤ n ∧ K (n - 1) < π ∧ π < K n ∧ Kabove π = K n := by
+  cases exists_level hπ.2.1 with
+  | intro n hn =>
+    cases n with
+    | zero => exact absurd hn.1 (not_lt_zero π)
+    | succ n =>
+      have hle : K n ≤ π := hn.2 n (Nat.lt_succ_self n)
+      have hlt : K n < π := lt_of_le_of_ne hle (fun e => hπ.2.2 n e.symm)
+      exact ⟨n + 1, Nat.succ_le_succ (Nat.zero_le n), hlt, hn.1, Kabove_eq hn.1 hn.2⟩
+
+/-- `K_{n-1} ≤ ρ < K_n` なら `K(ρ) = K_n` -/
+theorem Kabove_eq_of_between {ρ : Ordinal.{u}} {n : Nat} (h1 : K (n - 1) ≤ ρ)
+    (h2 : ρ < K n) : Kabove ρ = K n := by
+  apply Kabove_eq h2
+  intro m hm
+  exact le_trans (K_le (Nat.le_sub_one_of_lt hm)) h1
+
+/-! ### Lemma 4.11 (vi)(vii) -/
+
+/-- Lemma 4.11 (vii)：`π ∈ Reg` で `M^ξ` が `π` で定常なら `π ∈ M^ξ` -/
+theorem M_of_stationary {ξ π : Ordinal.{u}} (hπ : IsReg π) (hstat : Stationary π (M ξ)) :
+    M ξ π := by
+  have hR := hπ.1
+  cases eq_zero_or_pos ξ with
+  | inl h0 =>
+    subst h0
+    exact (M_zero_iff π).mpr (And.intro hR.2.1 hπ.2.1)
+  | inr hpos =>
+    have hξ0 : ξ ≠ 0 := ne_of_gt hpos
+    cases hπ.level with
+    | intro n hn =>
+      have hunb := hstat.unbounded hR
+      -- `M^ξ ∩ (η, π)` の元は `M^ξ` の性質をもつ
+      have hMρ : ∀ ρ, M ξ ρ → IsReg ρ ∧ (∀ x, C ξ ρ x → x < Kabove ρ → x < ρ) ∧ C ξ ρ ξ ∧
+          ∀ η, η < ξ → C ξ ρ η → Stationary ρ (M η) := fun ρ h => (M_pos_iff hξ0 ρ).mp h
+      apply (M_pos_iff hξ0 π).mpr
+      refine ⟨hπ, ?_, ?_, ?_⟩
+      · intro x hx hxK
+        cases C_limit hR.2.1 hx with
+        | intro η hη =>
+          cases hunb (omax η (K (n - 1))) (omax_lt hη.1 hn.2.1) with
+          | intro ρ hρ =>
+            have hKρ : Kabove ρ = K n :=
+              Kabove_eq_of_between (le_trans (le_omax_right _ _) (Or.inl hρ.2.1))
+                (lt_trans _ _ _ hρ.2.2 hn.2.2.1)
+            have hxρ := (hMρ ρ hρ.1).2.1 x
+              (C_mono_base (le_trans (le_omax_left _ _) (Or.inl hρ.2.1)) hη.2)
+              (by rw [hKρ, ← hn.2.2.2]; exact hxK)
+            exact lt_trans _ _ _ hxρ hρ.2.2
+      · cases hunb 0 hR.2.pos with
+        | intro ρ hρ => exact C_mono_base (Or.inl hρ.2.2) (hMρ ρ hρ.1).2.2.1
+      · intro η hηξ hηC U hU
+        cases C_limit hR.2.1 hηC with
+        | intro ε hε =>
+          cases hstat _ (Club.inter hR (Club.limitPoints hR hU) (club_gt hR hε.1)) with
+          | intro ρ hρ =>
+            have hρM := hMρ ρ hρ.2.2
+            have hstatρ := hρM.2.2.2 η hηξ (C_mono_base (Or.inl hρ.2.1.2) hε.2)
+            cases hstatρ U (Club.below hU hρ.1 hρ.2.1.1) with
+            | intro ζ hζ => exact Exists.intro ζ (And.intro (lt_trans _ _ _ hζ.1 hρ.1) hζ.2)
+
+/-- Lemma 4.11 (vi)：`π ∈ M^α` で `ξ ∈ C(α, π) ∩ α` なら `π ∈ M^ξ` -/
+theorem M_of_M {α ξ π : Ordinal.{u}} (h : M α π) (hξα : ξ < α) (hξ : C α π ξ) : M ξ π := by
+  have hα0 : α ≠ 0 := ne_of_gt (lt_of_le_of_lt (zero_le ξ) hξα)
+  have hM := (M_pos_iff hα0 π).mp h
+  exact M_of_stationary hM.1 (hM.2.2.2 ξ hξα hξ)
+
+/-! ### Prop. 4.16（後半） -/
+
+/-! ## The weak-compact reflection step in Rathjen's Theorem 4.12.
+
+`StageReflectionAt n` is the local reflection statement needed at `K n`.  The
+induction below derives `StationaryHyp` from those reflection statements.
+`StageReflectionAt` itself is proved from the partition property of `K n`
+(`PartitionProp`) by `stageReflectionAt_of_partition` in `Reflection.lean`, and
+`Complete.lean` puts the two together.
+-/
+
+/-- The reflection conclusion required at stage `n` in Theorem 4.12. -/
+def StageReflectionAt (n : Nat) : Prop :=
+  ∀ α, 0 < α → α ≤ Om (K n + succ 0) → C α (K n) α →
+    (∀ β, β < α → 0 < β → β ≤ Om (K n + succ 0) → C β (K n) β →
+      Stationary (K n) (M β)) →
+    ∀ E, Club (K n) E →
+      ∃ τ, τ < K n ∧ E τ ∧ IsReg τ ∧ C α τ α ∧
+        (∀ x, C α τ x → x < Kabove τ → x < τ) ∧
+        (∀ β, β < α → C α τ β → Stationary τ (M β))
+
+/-- Rathjen's induction step: the local reflection conclusion at every `K n`
+implies `StationaryHyp`. -/
+theorem stationaryHyp_of_stageReflection
+    (hreflect : ∀ n, 1 ≤ n → StageReflectionAt n) : StationaryHyp.{u} := by
+  intro n hn α
+  induction α using lt_wellFounded.induction with
+  | h α ih =>
+    intro hα0 hαK hC E hE
+    cases hreflect n hn α hα0 hαK hC ih E hE with
+    | intro τ hτ =>
+      exact ⟨τ, hτ.1, hτ.2.1,
+        (M_pos_iff (ne_of_gt hα0) τ).mpr
+          ⟨hτ.2.2.1, hτ.2.2.2.2.1, hτ.2.2.2.1, hτ.2.2.2.2.2⟩⟩
 
 end
 end OCF.Rathjen

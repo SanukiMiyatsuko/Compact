@@ -1,8 +1,4 @@
 -- This module serves as the root of the `Compact` library.
 -- Import modules here that should be built as part of the library.
-import Compact.Basic
-import Compact.Additive
-import Compact.OCFRathjen.WeaklyCompact
-import Compact.OCFRathjen.XiSuccK
 import Compact.OCFRathjen.Complete
-import Compact.WF.Axioms
+import Compact.WF.Wmax
