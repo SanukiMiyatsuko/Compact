@@ -5,3 +5,4 @@ import Compact.Additive
 import Compact.OCFRathjen.WeaklyCompact
 import Compact.OCFRathjen.XiSuccK
 import Compact.OCFRathjen.Complete
+import Compact.WF.Axioms
